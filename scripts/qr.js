@@ -1,0 +1,2 @@
+import QRCode from 'qrcode';import fs from 'node:fs';import {shareUrl} from '../public/share-url.js';
+try{const url=shareUrl(process.argv[2]||'');fs.mkdirSync('dist',{recursive:true});await QRCode.toFile('dist/ten-trial-qr.png',url,{width:800,margin:4,errorCorrectionLevel:'M',color:{dark:'#263d34',light:'#ffffff'}});fs.writeFileSync('dist/ten-trial-url.txt',url+'\n');console.log('QR saved to dist/ten-trial-qr.png');}catch(e){console.error(e.message);process.exitCode=1;}

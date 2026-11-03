@@ -1,0 +1,11 @@
+node_modules/
+dist/
+public/app.bundle.js
+public/fonts.css
+public/fonts/
+public/ocr/
+test-results/
+playwright-report/
+.vercel/
+*.log
+.env*

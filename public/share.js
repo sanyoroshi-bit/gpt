@@ -1,0 +1,4 @@
+import QRCode from 'qrcode';import {shareUrl} from './share-url.js';
+const $=id=>document.getElementById(id);let revision=0;
+async function generate(){const request=++revision;$('qr-result').hidden=true;try{const url=shareUrl($('share-url').value),data=await QRCode.toDataURL(url,{width:640,margin:4,errorCorrectionLevel:'M',color:{dark:'#263d34',light:'#ffffff'}});if(request!==revision)return;$('qr-image').src=data;$('trial-link').href=url;$('trial-link').textContent=url;$('save-qr').href=data;$('qr-result').hidden=false;$('share-message').textContent='スマホで読み取ってください。ログインなしで開けるURLかも確認してください。';}catch(e){if(request===revision)$('share-message').textContent=e.message;}}
+$('share-form').onsubmit=e=>{e.preventDefault();generate();};$('share-url').oninput=()=>{revision++;$('qr-result').hidden=true;};try{$('share-url').value=shareUrl(location.origin);generate();}catch{}
