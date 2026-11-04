@@ -1,0 +1,141 @@
+{
+  "runs": [
+    {
+      "model": "current",
+      "samples": [
+        {
+          "worker": 1,
+          "initializeMs": 1464,
+          "firstRecognizeMs": 3447,
+          "retainedWorkerRecognizeMs": 3214,
+          "characters": 117,
+          "text": "0⑨:④① 戻 る 記 事 の 一 覧\n\n読 書 と 日 々 の 暮 ら し\n\n今 日 は 新 し い 本 を 読 み ま す 。\n\n読 書 は 新 し い 景 色 と の 出 会 い で す 。\n毎 日 少 し ず つ 読 み 進 め て み ま し ょ う 。\n図 ① に 示 す よ う に 変 化 し て い ま す 。\n売 上 の 推 移 ② 0 ② ④ 年 ② 0 ② ⑤ 年\n広 告 お す す め の 記 事\n\nホ ー ム 検 索 お 気 に 入 り\n",
+          "confidence": 94
+        },
+        {
+          "worker": 2,
+          "initializeMs": 373,
+          "firstRecognizeMs": 3436,
+          "retainedWorkerRecognizeMs": 3290,
+          "characters": 117,
+          "text": "0⑨:④① 戻 る 記 事 の 一 覧\n\n読 書 と 日 々 の 暮 ら し\n\n今 日 は 新 し い 本 を 読 み ま す 。\n\n読 書 は 新 し い 景 色 と の 出 会 い で す 。\n毎 日 少 し ず つ 読 み 進 め て み ま し ょ う 。\n図 ① に 示 す よ う に 変 化 し て い ま す 。\n売 上 の 推 移 ② 0 ② ④ 年 ② 0 ② ⑤ 年\n広 告 お す す め の 記 事\n\nホ ー ム 検 索 お 気 に 入 り\n",
+          "confidence": 94
+        }
+      ],
+      "phases": [
+        {
+          "status": "loading tesseract core",
+          "ms": 30
+        },
+        {
+          "status": "initializing tesseract",
+          "ms": 66
+        },
+        {
+          "status": "loading language traineddata",
+          "ms": 107
+        },
+        {
+          "status": "initializing api",
+          "ms": 1316
+        },
+        {
+          "status": "recognizing text",
+          "ms": 1699
+        },
+        {
+          "status": "loading tesseract core",
+          "ms": 8151
+        },
+        {
+          "status": "initializing tesseract",
+          "ms": 8180
+        },
+        {
+          "status": "loading language traineddata",
+          "ms": 8217
+        },
+        {
+          "status": "initializing api",
+          "ms": 8355
+        },
+        {
+          "status": "recognizing text",
+          "ms": 8735
+        }
+      ]
+    },
+    {
+      "model": "integer-candidate",
+      "samples": [
+        {
+          "worker": 1,
+          "initializeMs": 444,
+          "firstRecognizeMs": 3612,
+          "retainedWorkerRecognizeMs": 3543,
+          "characters": 117,
+          "text": "09:41 戻る 記事 の 一 覧\n読書 と 日 々 の 暮らし\n\n今日 は 新しい 本 を 読み ます 。\n\n読書 は 新しい 景色 と の 出会い で す 。\n毎日 少し ずつ 読み 進め て み ま し ょ う 。\n図 1 に 示す よう に 変化 し て いま す 。\n売上 の 推移 2024 年 2025 年\n広告 おす すめ の 記事\n\nホー ム 検索 お 気に入り\n",
+          "confidence": 91
+        },
+        {
+          "worker": 2,
+          "initializeMs": 199,
+          "firstRecognizeMs": 3763,
+          "retainedWorkerRecognizeMs": 3511,
+          "characters": 117,
+          "text": "09:41 戻る 記事 の 一 覧\n読書 と 日 々 の 暮らし\n\n今日 は 新しい 本 を 読み ます 。\n\n読書 は 新しい 景色 と の 出会い で す 。\n毎日 少し ずつ 読み 進め て み ま し ょ う 。\n図 1 に 示す よう に 変化 し て いま す 。\n売上 の 推移 2024 年 2025 年\n広告 おす すめ の 記事\n\nホー ム 検索 お 気に入り\n",
+          "confidence": 91
+        }
+      ],
+      "phases": [
+        {
+          "status": "loading tesseract core",
+          "ms": 25
+        },
+        {
+          "status": "initializing tesseract",
+          "ms": 62
+        },
+        {
+          "status": "loading language traineddata",
+          "ms": 106
+        },
+        {
+          "status": "initializing api",
+          "ms": 357
+        },
+        {
+          "status": "recognizing text",
+          "ms": 671
+        },
+        {
+          "status": "loading tesseract core",
+          "ms": 7629
+        },
+        {
+          "status": "initializing tesseract",
+          "ms": 7658
+        },
+        {
+          "status": "loading language traineddata",
+          "ms": 7694
+        },
+        {
+          "status": "initializing api",
+          "ms": 7713
+        },
+        {
+          "status": "recognizing text",
+          "ms": 8045
+        }
+      ]
+    }
+  ],
+  "fixture": {
+    "width": 1080,
+    "height": 1920,
+    "synthetic": true
+  },
+  "device": "cloud Chromium desktop; not Android",
+  "network": "localhost; does not represent mobile download latency"
+}
