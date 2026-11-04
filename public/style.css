@@ -169,3 +169,5 @@ button:not(:disabled):active{transform:translateY(1px) scale(.98)}
  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
  button:hover,button:active{transform:none!important}.tap-feedback{display:none}
 }
+
+.article-fallback{padding:14px;background:var(--sage);border-radius:20px;margin:12px 0}.article-fallback p{margin-top:0}.article-fallback button{margin:3px 2px;font-size:11px}

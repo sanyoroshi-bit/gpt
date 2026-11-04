@@ -1,15 +1,23 @@
-import express from 'express';import {Readability} from '@mozilla/readability';import {JSDOM} from 'jsdom';import {fetch,EnvHttpProxyAgent,Agent} from 'undici';import {lookup} from 'node:dns/promises';import ipaddr from 'ipaddr.js';import path from 'node:path';import {fileURLToPath} from 'node:url';
-export function isPublic(address){return ipaddr.process(address).range()==='unicast';}
-const proxy=process.env.HTTPS_PROXY||process.env.HTTP_PROXY;
-export async function validateUrl(value){const url=new URL(value);if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.port&&!['80','443'].includes(url.port))throw new Error('公開されている記事のHTTP/HTTPS URLを入力してください。');const host=url.hostname.replace(/^\[|\]$/g,'');if(!host.includes('.')&&!host.includes(':')||/(^|\.)(localhost|local|internal|test|invalid)$/.test(host)||ipaddr.isValid(host)&&!isPublic(host))throw new Error('ローカル・プライベートネットワークは取り込めません。');let addresses;try{addresses=await lookup(host,{all:true});}catch(e){if(proxy&&process.env.TEN_TRUST_PROXY_DNS==='1'&&['EAI_AGAIN','ENOTFOUND'].includes(e.code))return url;throw new Error('接続先を確認できませんでした。本文や画像から取り込んでください。');}if(!addresses.length||addresses.some(a=>!isPublic(a.address)))throw new Error('ローカル・プライベートネットワークは取り込めません。');return url;}
-const dispatcher=proxy?new EnvHttpProxyAgent():new Agent({connect:{lookup(host,options,cb){lookup(host,{all:true}).then(addresses=>{if(!addresses.length||addresses.some(a=>!isPublic(a.address)))return cb(new Error('Private address blocked'));cb(null,options.all?addresses:addresses[0].address,addresses[0].family);}).catch(cb);}}});
-export function extract(html,url){const dom=new JSDOM(html,{url});try{const article=new Readability(dom.window.document).parse();if(!article?.textContent?.trim()||article.textContent.trim().length<40)throw new Error('本文を抽出できませんでした。文章の貼り付けか画像から読んでください。');return {title:article.title||new URL(url).hostname,text:article.textContent.trim(),source:url};}finally{dom.window.close();}}
-export function articleFailure(error,host='記事サイト'){for(let cause=error,depth=0;cause&&depth<10;cause=cause.cause,depth++){if(/Proxy response \(403\).*HTTP Tunneling/i.test(cause.message||''))return {code:'NETWORK_POLICY_BLOCKED',error:`ネットワーク設定で${host}への接続が許可されていません。本文や画像からの取り込みも使えます。`};if(cause.name==='TimeoutError')return {code:'ARTICLE_TIMEOUT',error:'記事の取得がタイムアウトしました。本文や画像から取り込んでください。'};}return {code:'ARTICLE_FETCH_FAILED',error:/[ぁ-ん一-龯]/.test(error.message||'')?error.message:'記事を取得できませんでした。本文や画像から取り込んでください。'};}
-export const app=express();app.disable('x-powered-by');app.use(express.json({limit:'8kb'}));app.use((req,res,next)=>{res.set('X-Content-Type-Options','nosniff');res.set('Content-Security-Policy',"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'");next();});
-app.post('/api/article',async(req,res)=>{let host;try{let url=await validateUrl(req.body.url);host=url.hostname;const signal=AbortSignal.timeout(15000);let response;for(let n=0;n<=4;n++){response=await fetch(url,{dispatcher,redirect:'manual',signal,headers:{Accept:'text/html','User-Agent':'TenReader/0.2'}});if(![301,302,303,307,308].includes(response.status))break;await response.body?.cancel();if(n===4)throw new Error('記事の転送が多すぎます。本文を貼り付けてください。');const location=response.headers.get('location');if(!location)throw new Error('記事の転送先を確認できません。');url=await validateUrl(new URL(location,url));host=url.hostname;}
- if(!response.ok){await response.body?.cancel();throw new Error('記事サイトがアクセスを受け付けませんでした。会員限定の記事は本文や画像から取り込んでください。');}
- const type=response.headers.get('content-type')||'';if(!type.includes('text/html')){await response.body?.cancel();throw new Error('HTML記事に対応しています。本文や画像を取り込んでください。');}
- let total=0;const buffers=[];for await(const bytes of response.body){total+=bytes.length;if(total>3000000)throw new Error('記事が大きすぎます。必要な本文を貼り付けてください。');buffers.push(Buffer.from(bytes));}const bytes=Buffer.concat(buffers),charset=type.match(/charset=["']?([^\s;"']+)/i)?.[1]||bytes.subarray(0,4096).toString('ascii').match(/charset\s*=\s*["']?([\w-]+)/i)?.[1]||'utf-8';let html;try{html=new TextDecoder(charset).decode(bytes);}catch{html=bytes.toString('utf8');}res.json(extract(html,url.href));
- }catch(error){const data=articleFailure(error,host);res.status(data.code==='NETWORK_POLICY_BLOCKED'?502:422).json(data);}});
+import express from 'express';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import articleHandler from './api/article.js';
+export {isPublic,validateUrl,extract,articleFailure} from './lib/article.js';
+
+export const app=express();
+app.disable('x-powered-by');
+app.use(express.json({limit:'8kb'}));
+app.use((req,res,next)=>{
+ res.set('X-Content-Type-Options','nosniff');
+ res.set('Content-Security-Policy',"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'");
+ next();
+});
+app.all('/api/article',articleHandler);
+app.use('/api',(req,res)=>res.status(404).json({code:'API_NOT_FOUND',error:'記事取り込みの接続先が見つかりません。'}));
+app.use((error,req,res,next)=>{
+ if(!req.path.startsWith('/api/'))return next(error);
+ const large=error.type==='entity.too.large';
+ res.status(large?413:400).json({code:large?'REQUEST_TOO_LARGE':'INVALID_REQUEST',error:large?'URLが長すぎます。記事のURLだけを入力してください。':'送信形式を確認できませんでした。ページを更新して再試行してください。'});
+});
 app.use(express.static(path.join(path.dirname(fileURLToPath(import.meta.url)),'public')));
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))app.listen(Number(process.env.PORT||3000),'0.0.0.0',()=>console.log('ten listening on '+(process.env.PORT||3000)));

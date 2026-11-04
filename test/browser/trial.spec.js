@@ -45,3 +45,13 @@ test('準備中に中止して再試行しても処理が重複しない',async(
   expect(await page.evaluate(()=>window.ocrWorkers)).toBe(1);await expect(page.locator('#ocr-text')).toHaveValue(/READ THIS TEXT/);
  }finally{release();}
 });
+test('記事APIの公開エラーを区別し、本文貼り付けへ進める',async({page})=>{
+ await page.route('**/api/article',route=>route.fulfill({status:404,contentType:'text/html',body:'<h1>Not Found</h1>'}));
+ await page.goto('/');await page.locator('#url-tab').click();
+ await page.locator('#url').fill('https://note.com/deeptech/n/ndd8646916e9c');await page.locator('#load').click();
+ await expect(page.locator('#message')).toContainText('HTTP 404');await expect(page.locator('#article-fallback')).toBeVisible();
+ await page.locator('#fallback-text').click();await expect(page.locator('#text-panel')).toBeVisible();await expect(page.locator('#article-fallback')).toBeHidden();
+ await page.locator('#text').fill('本文を貼り付けて読めます。');await page.locator('#load').click();await expect(page.locator('#original-text')).toHaveText('本文を貼り付けて読めます。');
+ await page.unroute('**/api/article');await page.route('**/api/article',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({title:'取り込んだ記事',text:'記事を読み込みました。本文を速読できます。'})}));
+ await page.locator('#url-tab').click();await page.locator('#load').click();await expect(page.locator('#article-title')).toHaveText('取り込んだ記事');await expect(page.locator('#article-fallback')).toBeHidden();
+});
