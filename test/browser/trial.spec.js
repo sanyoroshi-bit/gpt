@@ -55,3 +55,40 @@ test('記事APIの公開エラーを区別し、本文貼り付けへ進める',
  await page.unroute('**/api/article');await page.route('**/api/article',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({title:'取り込んだ記事',text:'記事を読み込みました。本文を速読できます。'})}));
  await page.locator('#url-tab').click();await page.locator('#load').click();await expect(page.locator('#article-title')).toHaveText('取り込んだ記事');await expect(page.locator('#article-fallback')).toBeHidden();
 });
+test('保存したHTMLを端末内で抽出し、埋め込みコードや画像を実行・送信しない',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await page.goto('/');await page.locator('#url-tab').click();
+ await page.locator('.import-help summary').click();
+ const requests=[];page.on('request',r=>{if(r.url().includes('outside.example'))requests.push(r.url());});
+ const paragraph='保存したページの本文を、文字を読み取る処理なしで取り込みます。図や写真は元のページで確認し、文章を順番に読み進められます。';
+ const html=`<!doctype html><html><head><title>保存した読書記事</title><link rel="canonical" href="https://note.com/test/n/n123456789abc"><link rel="stylesheet" href="https://outside.example/style.css"><script>window.htmlExecuted=true;fetch('https://outside.example/secret')</script></head><body><div class="note-common-styles__textnote-body"><p>${paragraph}</p><p>段落も分けて取り込めます。</p><img src="https://outside.example/image.png" onerror="window.htmlExecuted=true"><iframe src="https://outside.example/frame"></iframe></div><nav>不要なメニュー</nav></body></html>`;
+ await page.locator('#html-file').setInputFiles({name:'article.html',mimeType:'text/html',buffer:Buffer.from(html)});
+ await expect(page.locator('#message')).toContainText('保存したページから本文を取り込みました');
+ await expect(page.locator('#original-text')).toContainText(paragraph);await expect(page.locator('#original-text')).not.toContainText('不要なメニュー');
+ await expect(page.locator('#article-source')).toHaveAttribute('href','https://note.com/test/n/n123456789abc');
+ expect(await page.evaluate(()=>window.htmlExecuted)).toBeUndefined();expect(requests).toEqual([]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+async function waitForShareWorker(page){
+ await page.goto('/');await page.evaluate(async()=>{await navigator.serviceWorker.ready;if(!navigator.serviceWorker.controller)await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));});
+}
+async function sendShare(page,fields){
+ await page.evaluate(fields=>{const f=document.createElement('form');f.method='POST';f.action='/share-target';for(const [name,value]of Object.entries(fields)){const input=document.createElement('input');input.name=name;input.value=value;f.append(input);}document.body.append(f);f.submit();},fields);
+}
+test('Android共有の受取経路: 文章をサーバーへ送らず、端末内で一度だけ受け取る',async({page,context})=>{
+ await waitForShareWorker(page);
+ let postedToServer=false;await context.route('**/share-target',route=>{postedToServer=true;return route.fulfill({status:500,body:'Share POST reached server'});});
+ const text='共有した読書の文章です。ほかのアプリから、コピーし直さずに読むことができます。';
+ await sendShare(page,{text,title:'共有記事'});
+ await expect(page.locator('#article-title')).toHaveText('共有した文章');await expect(page.locator('#original-text')).toHaveText(text);
+ expect(postedToServer).toBe(false);expect(page.url()).not.toContain('share=');expect(page.url()).not.toContain(encodeURIComponent(text));
+ const count=await page.evaluate(()=>new Promise((resolve,reject)=>{const req=indexedDB.open('ten-shared-input',1);req.onsuccess=()=>{const db=req.result;const tx=db.transaction('pending');const q=tx.objectStore('pending').count();q.onsuccess=()=>resolve(q.result);tx.oncomplete=()=>db.close();};req.onerror=()=>reject(req.error);}));expect(count).toBe(0);
+});
+test('共有URLから本文取得へ進み、API応答・記事本文はキャッシュしない',async({page,context})=>{
+ await waitForShareWorker(page);const seen=[];
+ await context.route('**/api/article',route=>{seen.push(route.request().postDataJSON());return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({title:'共有リンクの記事',text:'共有リンクから取得した文章です。元記事を確認しながら読めます。',source:'https://note.com/test/n/n123456789abc',warnings:['記事の一部だけの可能性があります。']})});});
+ await sendShare(page,{text:'気になる記事 https://note.com/test/n/n123456789abc #note'});
+ await expect(page.locator('#article-title')).toHaveText('共有リンクの記事');expect(seen).toEqual([{url:'https://note.com/test/n/n123456789abc'}]);
+ await expect(page.locator('#article-notice')).toContainText('一部だけ');await expect(page.locator('#article-source')).toBeVisible();
+ const keys=await page.evaluate(async()=>{const result=[];for(const name of await caches.keys())for(const req of await(await caches.open(name)).keys())result.push(req.url);return result;});
+ expect(keys.some(url=>url.includes('/api/')||url.includes('share='))).toBe(false);
+});

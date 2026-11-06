@@ -1,6 +1,6 @@
 // A file-based Vercel Function: /api/article, with no rewrite or Express routing.
 // Keep the entry point independent of extraction libraries so startup failures return JSON.
-export const API_VERSION='article-v2';
+export const API_VERSION='article-v3';
 const respond=(res,status,body)=>res.status(status).json(body);
 export function createArticleHandler(loadService=()=>import('../lib/article.js')){
  return async function articleHandler(req,res){

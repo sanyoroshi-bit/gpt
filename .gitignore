@@ -9,3 +9,5 @@ playwright-report/
 .vercel/
 *.log
 .env*
+
+public/share-worker.bundle.js

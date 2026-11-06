@@ -11,5 +11,5 @@ fs.writeFileSync(asset('fonts.css'),css);fs.mkdirSync(asset('ocr/lang/'),{recurs
 for(const file of ['worker.min.js','worker.min.js.LICENSE.txt'])fs.copyFileSync(new URL('node_modules/tesseract.js/dist/'+file,root),asset('ocr/'+file));
 for(const file of ['tesseract-core-lstm.wasm.js','tesseract-core-lstm.wasm','LICENSE'])fs.copyFileSync(new URL('node_modules/tesseract.js-core/'+file,root),asset('ocr/'+file));
 for(const lang of ['jpn','eng'])fs.copyFileSync(new URL(`node_modules/@tesseract.js-data/${lang}/4.0.0/${lang}.traineddata.gz`,root),asset('ocr/lang/'+lang+'.traineddata.gz'));
-for(const entry of ['app','share'])await build({entryPoints:[asset(entry+'.js').pathname],bundle:true,platform:'browser',format:'esm',target:['es2022'],minify:true,legalComments:'inline',outfile:asset(entry+'.bundle.js').pathname});
+for(const entry of ['app','share','share-worker'])await build({entryPoints:[asset(entry+'.js').pathname],bundle:true,platform:'browser',format:'esm',target:['es2022'],minify:true,legalComments:'inline',outfile:asset(entry+'.bundle.js').pathname});
 console.log('Browser trial, local fonts, local OCR and QR page built.');

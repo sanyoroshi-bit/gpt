@@ -106,7 +106,7 @@ footer p,.disclaimer{font-size:11px;color:var(--muted)}
 #ocr-text{height:140px;margin-top:7px}
 #url-panel{min-height:285px}
 #url-panel>label{display:block;margin:25px 0 12px;font-size:13px}
-input[type=url]{width:100%;padding:16px;border:1px solid var(--line);border-radius:18px;background:#fbf9f2}
+input[type=url],#url{width:100%;padding:16px;border:1px solid var(--line);border-radius:18px;background:#fbf9f2}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #99633f;outline-offset:3px}
 [hidden]{display:none!important}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
@@ -171,3 +171,7 @@ button:not(:disabled):active{transform:translateY(1px) scale(.98)}
 }
 
 .article-fallback{padding:14px;background:var(--sage);border-radius:20px;margin:12px 0}.article-fallback p{margin-top:0}.article-fallback button{margin:3px 2px;font-size:11px}
+
+.import-help{border-top:1px solid var(--line);padding:16px 0;margin-top:20px;font-size:12px;line-height:1.9}.html-picker{display:block;padding:14px;border:1px dashed #b5be9e;border-radius:18px;background:var(--sage);cursor:pointer}.html-picker input{display:block;width:100%;margin-top:10px;font-size:12px}#article-source{display:block;text-align:center;text-decoration:none}#article-notice{padding:12px 14px;background:#f3ead8;border-radius:16px}
+
+.mobile-install{padding:15px 20px;margin:0 0 22px;background:#ede9de;border-radius:20px;font-size:12px;line-height:1.9}.focused .mobile-install{display:none}

@@ -1,5 +1,8 @@
 import {tokenize,characters,duration} from './reader.js';
 import {readArticleResponse} from './article-client.js';
+import {importHtml} from './html-import.js';
+import {normalizeArticleUrl} from '../shared/article-input.js';
+import {receiveShare,enableMobileShare} from './mobile-share.js';
 import {recognizeImage,inspectImage} from './ocr.js';
 const $=id=>document.getElementById(id), reduced=matchMedia('(prefers-reduced-motion:reduce)');
 const sample='読むことは、新しい景色に出会うこと。\nいつもの通勤時間も、コーヒーを待つ数分も、小さな読書の時間になります。\nこのリーダーでは、文章がひとつの場所で切り替わります。視線をあちこち動かさず、目の前の言葉に集中してみてください。\nはじめはゆっくり。慣れてきたら、少しずつ速度を上げて。大切なのは、あなたに合ったリズムを見つけることです。';
@@ -16,18 +19,19 @@ function stop(){clearTimeout(timer);playing=false;render();}
 function schedule(){clearTimeout(timer);timer=setTimeout(()=>{if(index>=tokens.length-1){complete=true;stop();return;}index++;render();schedule();},duration(tokens[index],+$('speed').value,$('pauses').checked));}
 function toggle(){if(busy||!tokens.length)return;if(playing)return stop();if(complete){complete=false;index=0;}playing=true;render();schedule();}
 function seek(value){stop();index=Math.max(0,Math.min(tokens.length-1,value));complete=false;render();}
-function prepare(value,title,source=null){stop();if(readerImage)URL.revokeObjectURL(readerImage);$('source-image').removeAttribute('src');readerImage=source?URL.createObjectURL(source):null;$('show-source').hidden=!readerImage;text=value.trim();index=0;complete=false;tokens=tokenize(text,+$('chunk').value,mode());timing();$('article-title').textContent=title;$('original-text').textContent=text;render();}
+function prepare(value,title,source=null){stop();$('article-source').hidden=true;$('article-source').removeAttribute('href');$('article-notice').hidden=true;$('article-notice').textContent='';if(readerImage)URL.revokeObjectURL(readerImage);$('source-image').removeAttribute('src');readerImage=source?URL.createObjectURL(source):null;$('show-source').hidden=!readerImage;text=value.trim();index=0;complete=false;tokens=tokenize(text,+$('chunk').value,mode());timing();$('article-title').textContent=title;$('original-text').textContent=text;render();}
 function modeUI(){$('chunk').disabled=mode()!=='phrase';$('mode-hint').textContent=mode()==='phrase'?'言葉のまとまりを優先して区切ります。長さは目安です。':mode()==='word'?'単語ごとに表示します。句読点は前の単語につながります。':'一文字ずつ表示します。空白はスキップし、絵文字は分割しません。';}
 function regroup(){const len=s=>s.replace(/\s/g,'').length,offset=len(tokens.slice(0,index).join('')),resume=playing,finished=complete;stop();tokens=tokenize(text,+$('chunk').value,mode());index=0;let count=0;while(index<tokens.length-1&&count+len(tokens[index])<=offset)count+=len(tokens[index++]);complete=finished;if(finished)index=Math.max(0,tokens.length-1);playing=resume&&!finished;timing();modeUI();save();render();if(playing)schedule();}
 function appearance(){$('font-size-value').textContent=$('font-size').value+' px';fit();save();document.fonts.ready.then(fit);}
 function speed(){$('speed-value').textContent=(+$('speed').value).toLocaleString('en-US');for(const button of document.querySelectorAll('[data-speed]'))button.setAttribute('aria-pressed',button.dataset.speed===$('speed').value);timing();save();render();if(playing)schedule();}
 function changeTab(value){tab=value;$('article-fallback').hidden=true;for(const key of ['text','image','url']){$(key+'-tab').setAttribute('aria-selected',key===value);$(key+'-tab').tabIndex=key===value?0:-1;$(key+'-panel').hidden=key!==value;}$('load').textContent=value==='image'?'確認した文章で読みはじめる →':'リーダーに送る →';message(value==='url'?'URLは記事取得のためサーバーに送信されます。':'文章と画像はこの端末内で処理されます。');}
-function getUrl(raw){const value=raw.trim().replace(/^\[[^\]]*\]\((https?:\/\/\S+)\)$/,'$1');if(!/^https?:\/\/\S+$/.test(value))return null;try{return new URL(value).href;}catch{return null;}}
-function setBusy(value){busy=value;$('load').disabled=value;$('play').disabled=value;$('image-file').disabled=value;$('start-ocr').disabled=value;$('crop-controls').disabled=value;$('ocr-text').disabled=value;$('restore-ocr').disabled=value;}
+function getUrl(raw){return normalizeArticleUrl(raw);}
+function applyArticle(data){prepare(data.text,data.title);$('text').value=data.text;$('text').oninput();const source=normalizeArticleUrl(data.source);if(source){$('article-source').href=source;$('article-source').hidden=false;}if(data.warnings?.length){$('article-notice').textContent=data.warnings.join(' ');$('article-notice').hidden=false;}}
+function setBusy(value){busy=value;$('load').disabled=value;$('play').disabled=value;$('image-file').disabled=value;$('html-file').disabled=value;$('sample').disabled=value;$('start-ocr').disabled=value;$('crop-controls').disabled=value;$('ocr-text').disabled=value;$('restore-ocr').disabled=value;}
 $('load').onclick=async()=>{if(busy)return;if(tab==='text'){const url=getUrl($('text').value);if(url){$('url').value=url;changeTab('url');}}
  if(tab==='text'||tab==='image'){const value=$(tab==='image'?'ocr-text':'text').value;if(!value.trim())return message(tab==='image'?'スクリーンショットを選んでください。':'読みたい文章を貼り付けてください。',true);prepare(value,tab==='image'?'スクリーンショットから':'貼り付けた文章',tab==='image'?resultFile:null);if(tab==='image'){toggle();if(innerWidth<780)document.querySelector('.reader-panel').scrollIntoView({behavior:reduced.matches?'instant':'smooth'});}else message('準備ができました。「読みはじめる」でスタート。');return;}
- const url=getUrl($('url').value);if(!url)return message('https:// から始まる記事URLを入力してください。',true);stop();setBusy(true);$('article-fallback').hidden=true;message('記事の本文を取り込んでいます…');
- try{const response=await fetch('/api/article',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url}),signal:AbortSignal.timeout(20000)});const data=await readArticleResponse(response);prepare(data.text,data.title);message('記事を取り込みました。');}catch(e){message(e.name==='TimeoutError'?'記事の取得に時間がかかっています。少し待って再試行するか、文章や画像から取り込んでください。':/[ぁ-ん一-龯]/.test(e.message)?e.message:'記事取り込み機能に通信できませんでした。通信状況を確認するか、文章や画像から取り込んでください。',true);$('article-fallback').hidden=false;}finally{setBusy(false);}
+ const url=normalizeArticleUrl($('url').value,{embedded:true});if(!url)return message('https:// から始まる記事URLを入力してください。',true);stop();setBusy(true);$('article-fallback').hidden=true;message('記事の本文を取り込んでいます…');
+ try{const response=await fetch('/api/article',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url}),signal:AbortSignal.timeout(20000)});const data=await readArticleResponse(response);applyArticle(data);message('本文を取り込みました。元の記事も確認してから読みはじめてください。');}catch(e){message(e.name==='TimeoutError'?'記事の取得に時間がかかっています。少し待って再試行するか、文章や画像から取り込んでください。':/[ぁ-ん一-龯]/.test(e.message)?e.message:'記事取り込み機能に通信できませんでした。通信状況を確認するか、文章や画像から取り込んでください。',true);$('article-fallback').hidden=false;}finally{setBusy(false);}
 };
 const cropKeys=['top','bottom','left','right'];
 function region(){return Object.fromEntries(cropKeys.map(k=>[k,+$('crop-'+k).value]));}
@@ -80,3 +84,9 @@ new ResizeObserver(fit).observe($('stage'));document.fonts.addEventListener('loa
 
 $('fallback-text').onclick=()=>{changeTab('text');$('text').focus();};
 $('fallback-image').onclick=()=>{changeTab('image');$('image-file').focus();};
+
+$('html-file').onchange=async()=>{const file=$('html-file').files[0];$('html-file').value='';if(!file||busy)return;stop();setBusy(true);message('保存したページから本文を取り込んでいます…');try{const data=await importHtml(file);applyArticle(data);$('article-fallback').hidden=true;message('保存したページから本文を取り込みました。「読みはじめる」でスタート。');}catch(e){message(e.message,true);}finally{setBusy(false);}};
+$('article-source').onclick=()=>stop();
+
+enableMobileShare();
+receiveShare().then(shared=>{if(!shared)return;if(shared.kind==='url'){changeTab('url');$('url').value=shared.value;$('load').click();}else{changeTab('text');$('text').value=shared.value;$('text').oninput();prepare(shared.value,'共有した文章');message('共有した文章を受け取りました。「読みはじめる」でスタート。');}}).catch(e=>message(e.message,true));

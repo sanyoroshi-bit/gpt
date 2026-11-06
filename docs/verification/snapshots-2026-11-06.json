@@ -1,0 +1,59 @@
+{
+  "kind": "historical-html-snapshots",
+  "results": [
+    {
+      "fixture": "medium-1",
+      "status": "passed",
+      "method": "readability",
+      "characters": 12430,
+      "expectedCharacters": 12430,
+      "paragraphsMatched": 30,
+      "paragraphs": 30
+    },
+    {
+      "fixture": "bbc-1",
+      "status": "passed",
+      "method": "readability",
+      "characters": 4118,
+      "expectedCharacters": 4118,
+      "paragraphsMatched": 29,
+      "paragraphs": 29
+    },
+    {
+      "fixture": "blogger",
+      "status": "passed",
+      "method": "article-body",
+      "characters": 11580,
+      "expectedCharacters": 11580,
+      "paragraphsMatched": 39,
+      "paragraphs": 39
+    },
+    {
+      "fixture": "wordpress",
+      "status": "passed",
+      "method": "article-body",
+      "characters": 3005,
+      "expectedCharacters": 3005,
+      "paragraphsMatched": 9,
+      "paragraphs": 9
+    },
+    {
+      "fixture": "wikipedia",
+      "status": "passed",
+      "method": "readability",
+      "characters": 25095,
+      "expectedCharacters": 25095,
+      "paragraphsMatched": 55,
+      "paragraphs": 55
+    },
+    {
+      "fixture": "hukumusume",
+      "status": "passed",
+      "method": "readability",
+      "characters": 850,
+      "expectedCharacters": 850,
+      "paragraphsMatched": 1,
+      "paragraphs": 1
+    }
+  ]
+}

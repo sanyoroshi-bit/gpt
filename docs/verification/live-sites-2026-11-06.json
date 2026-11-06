@@ -1,0 +1,29 @@
+{
+  "checkedAt": "2026-11-06T01:36:40.620Z",
+  "kind": "live-url-fetch",
+  "results": [
+    {
+      "url": "https://note.com/deeptech/n/ndd8646916e9c",
+      "status": "failed",
+      "code": "NETWORK_POLICY_BLOCKED",
+      "error": "ネットワーク設定でnote.comへの接続が許可されていません。本文や画像からの取り込みも使えます。",
+      "durationMs": 40
+    },
+    {
+      "url": "https://ja.wikipedia.org/wiki/読書",
+      "status": "failed",
+      "code": "NETWORK_POLICY_BLOCKED",
+      "error": "ネットワーク設定でja.wikipedia.orgへの接続が許可されていません。本文や画像からの取り込みも使えます。",
+      "durationMs": 5017
+    },
+    {
+      "url": "https://github.com/mozilla/readability",
+      "status": "extracted",
+      "title": "GitHub - mozilla/readability: A standalone version of the readability lib",
+      "characters": 6646,
+      "method": "article-body",
+      "warnings": [],
+      "durationMs": 3113
+    }
+  ]
+}

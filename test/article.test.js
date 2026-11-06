@@ -49,3 +49,7 @@ test('development API returns JSON for malformed bodies and missing API paths',a
   const missing=await fetch(base+'/api/missing');assert.equal(missing.status,404);assert.equal((await missing.json()).code,'API_NOT_FOUND');
  }finally{server.closeAllConnections();await new Promise(r=>server.close(r));}
 });
+test('an expired total request budget also stops URL validation',async()=>{
+ const {validateUrl}=await import('../lib/article.js');const controller=new AbortController();controller.abort(new DOMException('Budget expired','TimeoutError'));
+ await assert.rejects(validateUrl('https://example.org/article',{signal:controller.signal}),{name:'TimeoutError'});
+});

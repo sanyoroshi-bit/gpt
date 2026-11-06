@@ -14,5 +14,5 @@ export async function readArticleResponse(response){
  try{data=await response.json();}catch{throw new Error('記事取り込み機能から正しい応答がありませんでした。ページを更新して再試行してください。');}
  if(!response.ok)throw new Error(typeof data?.error==='string'?data.error:`記事を取得できませんでした（HTTP ${response.status}）。`);
  if(typeof data?.text!=='string'||!data.text.trim())throw new Error('記事本文が返ってきませんでした。文章の貼り付けや画像から取り込んでください。');
- return {text:data.text,title:typeof data.title==='string'?data.title:'取り込んだ記事'};
+ return {text:data.text,title:typeof data.title==='string'?data.title:'取り込んだ記事',...(typeof data.source==='string'?{source:data.source}:{}),...(Array.isArray(data.warnings)?{warnings:data.warnings.filter(s=>typeof s==='string').slice(0,5)}:{})};
 }
