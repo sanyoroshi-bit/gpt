@@ -57,7 +57,7 @@ test('記事APIの公開エラーを区別し、本文貼り付けへ進める',
 });
 test('保存したHTMLを端末内で抽出し、埋め込みコードや画像を実行・送信しない',async({page})=>{
  await page.setViewportSize({width:390,height:844});await page.goto('/');await page.locator('#url-tab').click();
- await page.locator('.import-help summary').click();
+ await page.locator('#url-panel .import-help summary').click();
  const requests=[];page.on('request',r=>{if(r.url().includes('outside.example'))requests.push(r.url());});
  const paragraph='保存したページの本文を、文字を読み取る処理なしで取り込みます。図や写真は元のページで確認し、文章を順番に読み進められます。';
  const html=`<!doctype html><html><head><title>保存した読書記事</title><link rel="canonical" href="https://note.com/test/n/n123456789abc"><link rel="stylesheet" href="https://outside.example/style.css"><script>window.htmlExecuted=true;fetch('https://outside.example/secret')</script></head><body><div class="note-common-styles__textnote-body"><p>${paragraph}</p><p>段落も分けて取り込めます。</p><img src="https://outside.example/image.png" onerror="window.htmlExecuted=true"><iframe src="https://outside.example/frame"></iframe></div><nav>不要なメニュー</nav></body></html>`;
@@ -91,4 +91,9 @@ test('共有URLから本文取得へ進み、API応答・記事本文はキャ�
  await expect(page.locator('#article-notice')).toContainText('一部だけ');await expect(page.locator('#article-source')).toBeVisible();
  const keys=await page.evaluate(async()=>{const result=[];for(const name of await caches.keys())for(const req of await(await caches.open(name)).keys())result.push(req.url);return result;});
  expect(keys.some(url=>url.includes('/api/')||url.includes('share='))).toBe(false);
+});
+test('初期化エラーの安全な診断フィールドをスマホ幅で表示する',async({page})=>{
+ await page.setViewportSize({width:320,height:844});
+ await page.route('**/api/article',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({code:'ARTICLE_SERVICE_UNAVAILABLE',error:'記事取り込み機能を起動できませんでした。',diagnostic:{phase:'initialization',code:'ERR_MODULE_NOT_FOUND',name:'Error',runtime:'v24.0.0',apiVersion:'article-v4',stack:'private-secret'}})}));
+ await page.goto('/');await page.locator('#url-tab').click();await page.locator('#url').fill('https://note.com/test');await page.locator('#load').click();await expect(page.locator('#article-diagnostic')).toBeVisible();await page.locator('#article-diagnostic summary').click();await expect(page.locator('#article-diagnostic-text')).toContainText('ERR_MODULE_NOT_FOUND');await expect(page.locator('#article-diagnostic-text')).not.toContainText('private-secret');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.locator('#text-tab').click();await expect(page.locator('#article-diagnostic')).toBeHidden();
 });

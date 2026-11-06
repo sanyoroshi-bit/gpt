@@ -45,7 +45,7 @@ BudouXはGoogle LLCによるApache-2.0ソフトウェアです。`licenses/BUDOU
 
 VercelのRoot Directoryはリポジトリのルートにし、`api/` と `lib/` をデプロイ対象に含めます。静的ファイルの出力先だけを `public` に設定します。`/api/article` は `api/article.js` の直接のFunctionで、rewriteは不要です。
 
-`GET /api/article` が `{"service":"ten-article","version":"article-v3","status":"route-ready"}` を返せば、新しいAPIの入口に到達しています。これは記事取得・外部接続の成功を保証する検査ではありません。記事取得は同じURLへ `POST {"url":"記事URL"}` を送ります。
+`GET /api/article` が `{"service":"ten-article","version":"article-v4","status":"dependencies-ready"}` を返せば、APIへの到達と記事取得ライブラリの初期化を確認できています。これは外部サイトからの記事取得の成功を保証する検査ではありません。記事取得は同じURLへ `POST {"url":"記事URL"}` を送ります。
 
 起動時の依存ライブラリ読み込み失敗はJSONの503、入力不備は400、記事側の取得失敗は通常422として返します。プラットフォームが返すHTMLの404/500等も画面で区別し、文章・画像取り込みへの切り替えを表示します。実際のnote記事の取得可否は公開環境で別途確認が必要です。
 

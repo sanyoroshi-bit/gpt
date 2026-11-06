@@ -12,7 +12,13 @@ export async function readArticleResponse(response){
  }
  let data;
  try{data=await response.json();}catch{throw new Error('記事取り込み機能から正しい応答がありませんでした。ページを更新して再試行してください。');}
- if(!response.ok)throw new Error(typeof data?.error==='string'?data.error:`記事を取得できませんでした（HTTP ${response.status}）。`);
+ if(!response.ok){
+  const error=new Error(typeof data?.error==='string'?data.error:`記事を取得できませんでした（HTTP ${response.status}）。`);
+  const details={httpStatus:response.status,apiVersion:response.headers.get('x-ten-article-version')||'unknown'};
+  const d=data?.diagnostic;
+  if(d&&typeof d==='object')for(const key of ['phase','code','name','runtime','apiVersion'])if(typeof d[key]==='string'&&/^[a-zA-Z0-9_.-]{1,64}$/.test(d[key]))details[key]=d[key];
+  error.diagnostic=details;throw error;
+ }
  if(typeof data?.text!=='string'||!data.text.trim())throw new Error('記事本文が返ってきませんでした。文章の貼り付けや画像から取り込んでください。');
  return {text:data.text,title:typeof data.title==='string'?data.title:'取り込んだ記事',...(typeof data.source==='string'?{source:data.source}:{}),...(Array.isArray(data.warnings)?{warnings:data.warnings.filter(s=>typeof s==='string').slice(0,5)}:{})};
 }

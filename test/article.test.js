@@ -6,16 +6,16 @@ import {app} from '../server.js';
 import {readFile} from 'node:fs/promises';
 function response(){return {headers:{},setHeader(k,v){this.headers[k]=v;},status(n){this.statusCode=n;return this;},json(data){this.body=data;return this;}};}
 
-test('file-based Vercel endpoint works without URL rewriting or an Express application',async()=>{
+test('file-based endpoint configuration and local initialization match',async()=>{
  const config=JSON.parse(await readFile(new URL('../vercel.json',import.meta.url)));
  assert.ok(config.functions['api/article.js']);assert.equal(config.rewrites,undefined);
  const res=response();await handler({method:'GET',url:'/api/article'},res);
  assert.equal(res.statusCode,200);assert.equal(res.body.version,API_VERSION);assert.equal(res.headers['Cache-Control'],'no-store');
 });
 test('extraction dependency startup failure returns actionable JSON rather than an HTML crash',async()=>{
- const broken=createArticleHandler(async()=>{throw new Error('dependency initialization failed');});
+ const broken=createArticleHandler(async()=>{throw Object.assign(new Error('private path /do-not-expose'),{code:'ERR_MODULE_NOT_FOUND'});},()=>{});
  const res=response();await broken({method:'POST',body:{url:'https://note.com/deeptech/n/ndd8646916e9c'}},res);
- assert.equal(res.statusCode,503);assert.equal(res.body.code,'ARTICLE_SERVICE_UNAVAILABLE');assert.match(res.body.error,/起動できません/);
+ assert.equal(res.statusCode,503);assert.equal(res.body.code,'ARTICLE_SERVICE_UNAVAILABLE');assert.match(res.body.error,/起動できません/);assert.equal(res.body.diagnostic.code,'ERR_MODULE_NOT_FOUND');assert.ok(!JSON.stringify(res.body).includes('do-not-expose'));
 });
 test('function accepts parsed and string JSON bodies, with no request path dependency',async()=>{
  const successful=createArticleHandler(async()=>({fetchArticle:async url=>({title:'記事',text:'取得した本文',source:url})}));
@@ -52,4 +52,15 @@ test('development API returns JSON for malformed bodies and missing API paths',a
 test('an expired total request budget also stops URL validation',async()=>{
  const {validateUrl}=await import('../lib/article.js');const controller=new AbortController();controller.abort(new DOMException('Budget expired','TimeoutError'));
  await assert.rejects(validateUrl('https://example.org/article',{signal:controller.signal}),{name:'TimeoutError'});
+});
+test('GET initializes dependencies but never fetches an external article',async()=>{
+ let loads=0,fetches=0;const check=createArticleHandler(async()=>{loads++;return {fetchArticle:async()=>{fetches++;}};});
+ const res=response();await check({method:'GET'},res);assert.equal(loads,1);assert.equal(fetches,0);assert.equal(res.body.status,'dependencies-ready');assert.equal(res.body.scope,'initialization-only');
+});
+test('GET and POST expose safe initialization diagnostics, not private exception details',async()=>{
+ for(const method of ['GET','POST']){
+  const check=createArticleHandler(async()=>{throw Object.assign(new Error('/secret/path?token=private'),{name:'bad name /secret',code:'bad\ncode'});},()=>{});
+  const res=response();await check({method,body:{url:'https://note.com/test'}},res);
+  assert.equal(res.statusCode,503);assert.equal(res.body.diagnostic.code,'UNKNOWN');assert.equal(res.body.diagnostic.name,'UNKNOWN');assert.equal(res.body.diagnostic.phase,'initialization');assert.ok(!JSON.stringify(res.body).includes('private'));assert.equal(res.body.diagnostic.apiVersion,API_VERSION);
+ }
 });
