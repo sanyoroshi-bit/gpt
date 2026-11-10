@@ -1,0 +1,26 @@
+{
+  "version": "0.1.0",
+  "package": "jp.tenreader.launcher",
+  "minSdk": 26,
+  "targetSdk": 36,
+  "apk": "public/downloads/ten-launcher-debug.apk",
+  "bytes": 24923,
+  "sha256": "df022a135168dd9719e0b6a65389374a6b2ec090b07f37710341cd4d092f3686",
+  "signerCertificateSha256": "d9a8b754451ef083cd6dd2584d6cce95007cd7db2bc8ba46ad9dd23a17020e98",
+  "signingScheme": "v2",
+  "signatureVerified": true,
+  "tests": {
+    "junit": 4,
+    "robolectricApi36": 8,
+    "failures": 0,
+    "errors": 0
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 1,
+    "warning": "A newer Gradle version is available; compatible Gradle 8.13 pinned with checksum"
+  },
+  "connectedAndroidDevices": 0,
+  "deviceOrEmulatorValidated": false,
+  "scope": "Build, JVM Android API simulation, signature and local HTTP download; Android device behavior unverified"
+}
