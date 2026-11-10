@@ -22,5 +22,16 @@
   },
   "connectedAndroidDevices": 0,
   "deviceOrEmulatorValidated": false,
-  "scope": "Build, JVM Android API simulation, signature and local HTTP download; Android device behavior unverified"
+  "scope": "Build, JVM Android API simulation, signature, local and public HTTP download; Android device behavior unverified",
+  "publicDownload": {
+    "url": "https://gpt-delta.vercel.app/downloads/ten-launcher-debug.apk",
+    "sourceCommit": "b204c02848cc124eccd7dc847016562bd6736f55",
+    "checkedAt": "2026-11-10T14:30:06.793Z",
+    "httpStatus": 200,
+    "contentType": "application/vnd.android.package-archive",
+    "bytes": 24923,
+    "sha256": "df022a135168dd9719e0b6a65389374a6b2ec090b07f37710341cd4d092f3686",
+    "guideHttpStatus": 200,
+    "vercelStatus": "success"
+  }
 }

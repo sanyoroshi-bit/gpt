@@ -45,6 +45,10 @@ APKは24,923 bytes、SHA-256 `df022a135168dd9719e0b6a65389374a6b2ec090b07f377103
 
 承認対象は上記SHA-256のデバッグ署名試用APKとローカル実装・検証・配布導線。Android実機のインストール・他アプリ上の表示／操作・通知／タイル・省電力制限、公開後のダウンロード成功は承認対象外。この承認後にcommit／pushを行う。
 
+## 公開後の確認
+
+承認後のコミット`b204c02`をmainへpushし、Vercelの成功ステータスを確認した。公開URLの`/android.html`とAPK／チェックサムはすべてHTTP 200。配信APKのContent-Typeは`application/vnd.android.package-archive`、サイズ24,923 bytes、SHA-256は承認対象と一致した。配布ページの実機未確認の文言も配信されている。結果を検証JSONへ追記した。この確認は公開ファイルの配信までで、Android実機でのインストール・動作確認ではない。
+
 ## 検証範囲の限界
 
 `adb devices`で接続端末は0台。Android実機・Androidエミュレーター上のインストール、権限画面、他アプリ上での表示、実際のタップ／ドラッグ、端末固有の省電力制限、タイル登録は未検証。RobolectricはJVM上のAndroid API検証であり、実機成功の代わりとはしない。
