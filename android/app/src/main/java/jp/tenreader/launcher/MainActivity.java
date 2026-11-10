@@ -57,19 +57,19 @@ public final class MainActivity extends Activity {
         TextView title = text(content, "ten.", 48);
         title.setTypeface(Typeface.create("serif", Typeface.BOLD));
         text(content, "ほかのアプリから、読書へ。", 20);
-        text(content, "試用版 0.1.0 · Android 8以降", 13);
-        button(content, "tenを開く ↗", this::openReader);
+        text(content, "試用版 0.2.0 · Android 8以降", 13);
+        button(content, "ブラウザ版tenを開く ↗", this::openReader);
         status = text(content, "", 15);
         enable = button(content, "画面のボタンを表示", this::enableOverlay);
         button(content, "ボタンを非表示にする", () -> { stopService(new Intent(this, OverlayService.class)); refresh(); });
-        text(content, "表示したtenをタップすると、ブラウザでtenが開きます。ドラッグで位置を変え、長押しで非表示にできます。", 15);
+        text(content, "読みたいアプリを開いて、小さなtenを押してください。画面取得を許可すると、日本語の本文候補を読み取り、そのアプリ上で定点表示します。範囲・文章はリーダー内で修正できます。ドラッグでアイコン移動、長押しで非表示です。", 15);
         button(content, "クイック設定にボタンを追加", this::addTile);
         text(content, "クイック設定の「ten ボタン」からも表示・非表示を切り替えられます。追加されないときは、画面上端を2回下へスワイプし、編集から追加してください。", 14);
         button(content, "通知の設定", () -> {
             Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
             try { startActivity(intent); } catch (ActivityNotFoundException e) { toast("端末の設定からtenの通知を確認してください。"); }
         });
-        text(content, "このアプリは起動ボタンです。表示には「ほかのアプリの上に重ねて表示」の許可を使います。画面やクリップボードの読み取りは行いません。文章・記事・画像の取り込みは、開いたtenで操作します。", 14);
+        text(content, "表示には重ね表示の許可、読み取りにはOSの画面取得への同意を使います。取得した画像と本文は端末内で処理し、閉じると破棄します。保護画面には対応していません。画面外の続きは、画面を動かして読み取り直せます。", 14);
         text(content, "OSや省電力設定でボタンが停止することがあります。再起動後は自動表示しません。再びこの画面から表示してください。", 14);
         setContentView(scroll);
         if (state == null) handleIntent(getIntent());
@@ -148,7 +148,7 @@ public final class MainActivity extends Activity {
     private void refresh() {
         if (status == null) return;
         boolean running = OverlayService.isRunning();
-        status.setText(running ? "起動ボタンを表示中です。" : "起動ボタンは非表示です。");
+        status.setText(CaptureTicket.busy()?"画面の読み取り・読書中です。":running ? "起動ボタンを表示中です。" : "起動ボタンは非表示です。");
         enable.setEnabled(!running);
     }
 

@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 test('Android試用版の案内がスマホに収まり、APKとチェックサムを取得できる',async({page},testInfo)=>{
  await page.setViewportSize({width:320,height:900});await page.goto('/');
  await page.locator('.mobile-install summary').click();
- await page.getByRole('link',{name:'Android用起動ボタンの試用版'}).click();
+ await page.getByRole('link',{name:'Android用画面リーダーの試用版'}).click();
  await expect(page).toHaveURL(/\/android\.html$/);
  await expect(page.locator('.android-guide')).toContainText('Android実機での動作は未確認です');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(320);

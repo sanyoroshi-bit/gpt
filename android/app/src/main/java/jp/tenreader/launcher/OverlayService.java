@@ -39,12 +39,15 @@ import android.view.WindowManager;
 import android.view.WindowMetrics;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.lang.ref.WeakReference;
 
 public final class OverlayService extends Service {
     private static final String STOP = "jp.tenreader.launcher.STOP_OVERLAY";
     private static final String CHANNEL = "ten-launcher";
     static final String STATE_CHANGED = "jp.tenreader.launcher.STATE_CHANGED";
     private static volatile boolean running;
+    private static WeakReference<OverlayService> instance=new WeakReference<>(null);
+    private boolean screenAvailable=true;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private WindowManager windows;
     private TextView bubble;
@@ -60,11 +63,22 @@ public final class OverlayService extends Service {
     };
     private final BroadcastReceiver screenReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
-            if (bubble != null) bubble.setVisibility(Intent.ACTION_SCREEN_OFF.equals(intent.getAction()) || getSystemService(KeyguardManager.class).isKeyguardLocked() ? View.GONE : View.VISIBLE);
+            screenAvailable=!Intent.ACTION_SCREEN_OFF.equals(intent.getAction());
+            refreshVisibility();
         }
     };
 
     static boolean isRunning() { return running; }
+    @Override public void onCreate(){super.onCreate();instance=new WeakReference<>(this);}
+    static void refreshVisibility(){
+        OverlayService service=instance.get();
+        if(service==null)return;
+        Runnable update=()->{
+            if(service.bubble!=null)service.bubble.setVisibility(CaptureTicket.busy()||!service.screenAvailable||service.getSystemService(KeyguardManager.class).isKeyguardLocked()?View.GONE:View.VISIBLE);
+            service.sendBroadcast(new Intent(STATE_CHANGED).setPackage(service.getPackageName()));
+        };
+        if(Looper.myLooper()==Looper.getMainLooper())update.run();else service.handler.post(update);
+    }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || STOP.equals(intent.getAction()) || !Settings.canDrawOverlays(this)) {
@@ -80,7 +94,7 @@ public final class OverlayService extends Service {
             PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, OverlayService.class).setAction(STOP), PendingIntent.FLAG_IMMUTABLE);
             Notification notification = new Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_tile)
                 .setContentTitle("tenの起動ボタンを表示中")
-                .setContentText("タップしてtenを開く · ボタンは長押しで非表示")
+                .setContentText("アイコンで画面の本文を読む · 長押しで非表示")
                 .setContentIntent(open).setOngoing(true).setVisibility(Notification.VISIBILITY_SECRET)
                 .addAction(new Notification.Action.Builder(null, "非表示にする", stop).build()).build();
             if (Build.VERSION.SDK_INT >= 34) startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
@@ -120,12 +134,12 @@ public final class OverlayService extends Service {
         bubble.setText(R.string.bubble_label); bubble.setTextSize(18); bubble.setGravity(Gravity.CENTER);
         bubble.setTypeface(Typeface.create("serif", Typeface.BOLD));
         bubble.setTextColor(Color.rgb(255, 252, 246));
-        bubble.setContentDescription("tenを開く。ドラッグで移動、長押しで非表示。");
+        bubble.setContentDescription("画面の本文を読み取る。ドラッグで移動、長押しで非表示。");
         GradientDrawable background = new GradientDrawable(); background.setShape(GradientDrawable.OVAL);
         background.setColor(Color.rgb(51, 72, 62)); background.setStroke(Math.max(1, size / 28), Color.rgb(242, 223, 159));
         bubble.setBackground(background);
         bubble.setOnClickListener(view -> {
-            try { startActivity(new Intent(this, MainActivity.class).setAction(MainActivity.OPEN_READER).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)); }
+            try { CaptureActivity.open(this); }
             catch (RuntimeException e) { Toast.makeText(this, "tenを開けません。アプリアイコンから開いてください。", Toast.LENGTH_LONG).show(); }
         });
         bubble.setOnLongClickListener(view -> { stopSelf(); return true; });
@@ -133,7 +147,7 @@ public final class OverlayService extends Service {
             float downX, downY;
             int startX, startY;
             boolean dragged, longPressed;
-            final int slop = ViewConfiguration.get(OverlayService.this).getScaledTouchSlop();
+            final int slop = ViewConfiguration.get(bubble.getContext()).getScaledTouchSlop();
             final Runnable hold = () -> { longPressed = true; if (bubble != null) bubble.performLongClick(); };
             @Override public boolean onTouch(View view, MotionEvent event) {
                 switch (event.getActionMasked()) {
@@ -197,6 +211,8 @@ public final class OverlayService extends Service {
     private void updateTile() { TileService.requestListeningState(this, new ComponentName(this, ReaderTileService.class)); }
     @Override public void onDestroy() {
         running = false;
+        if(instance.get()==this)instance.clear();
+        CaptureTicket.cancelAll();stopService(new Intent(this,ScreenReaderService.class));
         handler.removeCallbacksAndMessages(null);
         if (receiverRegistered) { unregisterReceiver(screenReceiver); receiverRegistered = false; }
         if (watchingPermission) { appOps.stopWatchingMode(permissionChanged); watchingPermission = false; }

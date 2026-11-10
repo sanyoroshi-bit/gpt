@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application android:label="ten 起動ボタン" android:icon="@drawable/ic_ten"
         android:theme="@style/AppTheme" android:allowBackup="false" android:fullBackupContent="false"
@@ -18,6 +20,12 @@
             </intent-filter>
         </activity>
         <activity android:name=".MainActivity" android:exported="false" android:launchMode="singleTop" />
+        <activity android:name=".CaptureActivity" android:exported="false" android:theme="@style/CaptureTheme"
+            android:taskAffinity="" android:excludeFromRecents="true" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <service android:name=".ScreenReaderService" android:exported="false" android:foregroundServiceType="mediaProjection|specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-requested on-device OCR of an approved visible screen, followed by a stoppable reading overlay. Captured images and text are not persisted." />
+        </service>
         <service android:name=".OverlayService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-enabled movable reading launcher overlay; visible until the user hides it. No screen capture or background content reading." />

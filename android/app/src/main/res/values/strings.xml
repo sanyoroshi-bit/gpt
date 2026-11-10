@@ -1,1 +1,5 @@
-<resources><string name="bubble_label" translatable="false">ten.</string></resources>
+<resources>
+    <string name="bubble_label" translatable="false">ten.</string>
+    <string name="reader_position">%1$d / %2$d　%3$s\n誤りがある場合は範囲・文章を直せます。</string>
+    <string name="reader_speed">%1$d 文字／分</string>
+</resources>

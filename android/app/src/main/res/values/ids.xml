@@ -1,0 +1,7 @@
+<resources>
+    <item name="reader_word" type="id"/><item name="reader_status" type="id"/>
+    <item name="reader_play" type="id"/><item name="reader_editor" type="id"/>
+    <item name="reader_apply" type="id"/><item name="reader_crop" type="id"/>
+    <item name="reader_mode" type="id"/><item name="reader_close" type="id"/>
+    <item name="reader_next" type="id"/>
+</resources>

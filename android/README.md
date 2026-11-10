@@ -1,47 +1,36 @@
-# ten 起動ボタン（Android試用版）
+# ten Android画面リーダー（試用版0.2）
 
-他アプリ上の小さなtenボタンから、ブラウザの`https://gpt-delta.vercel.app/`を開くネイティブの補助アプリ。Android 8以降、target/compile SDK 36。外部ライブラリなしのJava実装。
+他アプリを見ながらtenアイコンを押し、OSの画面取得に同意すると、表示中の本文候補を端末内で認識し、同じアプリの上に定点リーダーを表示する。Android 8以降、compile/target SDK 36。現在のアプリ名は「ten 起動ボタン」。
 
 ## 使い方
 
-1. 試用APKをインストールし「ten 起動ボタン」を開く。
-2. 「画面のボタンを表示」を押し、端末の重ね表示設定でtenを許可して戻る。
-3. ボタンをタップしてtenを開く。ドラッグで移動、長押しで非表示。アプリ画面や表示中の通知からも非表示にできる。
-4. 任意で「クイック設定にボタンを追加」。タイルは表示・非表示の切り替えに使う。追加できない場合は端末のクイック設定の編集から追加する。
+1. APKをインストール／更新し、「画面のボタンを表示」から重ね表示を許可する。
+2. 読みたいアプリを開き、tenアイコンを押す。OSの確認で対象アプリまたは画面の取得を許可する。
+3. 本文候補を定点表示する。停止・再生・前後移動・読む位置・速度・意味／単語／一文字・文字サイズ・標準／明朝を選べる。
+4. 誤った範囲は「範囲・文章・文字サイズを直す」で画像上を囲み直すか、全文へ戻して本文を修正する。原寸画像の再送信や再OCRは行わない。
+5. 閉じる／通知の停止で読書を終了する。続きは元の画面を動かしてアイコンから取得し直す。
 
-Android 13以降で通知を拒否した場合もボタンは利用できるが、通知欄からの起動・停止は利用できない。アプリ画面、長押し、またはOSの実行中アプリ管理から停止できる。
+アイコンは移動・長押し非表示に対応。任意でクイック設定の「ten ボタン」を追加できる。Android 13以降で通知を拒否した場合、通知欄の操作は使えないがアイコンや読書欄の終了操作は使える。
 
-## 範囲
+## 取得とデータ
 
-- 初回のみ重ね表示の許可が必要。サービスは利用者の操作から開始し、再起動・OS停止後に自動復活しない。
-- フォアグラウンドサービスに`specialUse`と用途を宣言。表示中は通知を維持し、停止時に解除する。
-- タップとドラッグを区別し、長押し・キャンセル後にブラウザを誤起動しない。座標は端末内保存し、向き変更時に画面内へ補正。画面OFF時は隠す。
-- 内部操作Activityとサービスは外部公開しない。公開ランチャーは設定画面を開く役割に限定する。
-- アプリ自体にインターネット・画面取得・アクセシビリティ権限はない。画面やクリップボードを読まず、記事等の取り込みは開いたtenの既存操作で行う。
-- OSや機種によるサービス停止、重ね表示が禁止される画面があるため、常時表示を保証しない。
+- 取得はOS同意を受けたセッションのみ。現在の実装は1枚取得後にProjectionを終了し、その本文を読書する。取得同意の再利用・自動復活・ブート開始は行わない。
+- 画像と本文は端末内。日本語OCRモデルをAPKに同梱するため約46MiB。画像をファイルへ保存せず、OCR終了後に原寸画像を、読書終了時に縮小画像と本文を解放する。
+- 認識中に中止した場合は結果の採用を即座に無効化し、認識処理中の画像は処理終了後に解放する。
+- ML KitにはSDK利用状況の計測もある。アプリのINTERNET権限はmerged manifestから除去。実機の通信挙動は未検証なので、端末全体が通信しないという保証とはしない。
+- 画面取得禁止の画面には対応しない。本文候補は自動判別なので必要に応じて範囲・文章を直す。縦書き・段組みの読み順は未検証。
+- OS停止、画面ロック、重ね表示の取り消しで終了。Android 13以前の取得中の回転は再試行を案内する。OS・省電力設定で常時表示は保証しない。
 
-## ビルド
+## ビルドと検証
 
-JDK 17または21、Android SDKの`platforms;android-36`と`build-tools;35.0.0`、Gradle 8.13を利用。wrapperは配布ZIPのSHA-256を固定している。
-
-Windowsではリポジトリのルートから:
+JDK 17または21、Android SDK 36、Build Tools 35.0.0、Gradle 8.13、AGP 8.12.2。Gradle wrapperには配布ZIPのSHA-256を固定している。
 
 ```powershell
 .\scripts\build-android.ps1 -SdkRoot C:\path\to\android-sdk -JavaHome C:\path\to\jdk
 ```
 
-非ASCIIの作業パスに対応するため、一時領域にソースをコピーし、Gradleキャッシュも一時領域のASCIIパスに置いてユニットテスト・Lint・APKビルドを行う。元の作業ファイルを移動・削除しない。出力APKは`public/downloads/ten-launcher-debug.apk`、レポートとデバッグ署名鍵はgit管理外の`.ten-cache/`に保存する。同じ鍵を保持すると同じ署名で更新できる。JUnitとRobolectricはテスト時のみ利用する。
+Windowsの日本語パスを避けるため、一時領域へソースをコピーし、GradleキャッシュもASCIIパスに置く。元のフォルダを移動・削除しない。JUnit／Robolectric、Lint、assembleDebug、apksignerの全検証後にpublic/downloads/ten-launcher-debug.apkとSHA-256を保存する。署名鍵とレポートはgit管理外の.ten-cache/に保存。同じ鍵を保持すれば更新できる。
 
-Linux/macOSはJDK/SDKと`TEN_DEBUG_KEYSTORE`に既存のデバッグ鍵を指定し、`cd android && ./gradlew testDebugUnitTest lintDebug assembleDebug`を実行する。
+Linux/macOSではJDK・SDKとTEN_DEBUG_KEYSTOREを指定し、androidで ./gradlew testDebugUnitTest lintDebug assembleDebug を実行する。
 
-このAPKはデバッグ署名の試用版。Playストア配布用の正式署名・課金・ストア審査は含まない。検証結果と独立監査の承認範囲は`docs/audit-android-launcher-2026-11-10.md`に記録する。
-
-実機確認項目: 初回許可と拒否、2回目の起動、ドラッグ/長押し/回転、通知拒否と停止、クイック設定の追加/切り替え、画面ロック、権限取り消し、OS停止後の再表示。
-
-## 参照した公式仕様
-
-- [重ね表示の権限](https://developer.android.com/reference/android/provider/Settings#canDrawOverlays(android.content.Context))
-- [Foreground serviceのspecialUse](https://developer.android.com/develop/background-work/services/fgs/service-types#special-use)
-- [Foreground service開始の制限](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)
-- [クイック設定タイル](https://developer.android.com/develop/ui/views/quicksettings-tiles)
-- [タスクと既存Activityへの起動](https://developer.android.com/guide/components/activities/tasks-and-back-stack)
+検証の詳細は docs/android-screen-reading-2026-11-11.md を参照。RobolectricのFrameSource/OcrEngineはテスト用の偽物であり、実機の画面取得やOCRモデル本体の精度を証明しない。デバッグ署名の試用版として配布し、正式署名・ストア公開・課金は含まない。
