@@ -11,3 +11,9 @@ playwright-report/
 .env*
 
 public/share-worker.bundle.js
+.ten-cache/
+android/.gradle/
+android/**/build/
+android/local.properties
+android/*.keystore
+android/*.jks
