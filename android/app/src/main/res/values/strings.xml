@@ -2,4 +2,5 @@
     <string name="bubble_label" translatable="false">ten.</string>
     <string name="reader_position">%1$d / %2$d　%3$s\n誤りがある場合は範囲・文章を直せます。</string>
     <string name="reader_speed">%1$d 文字／分</string>
+    <string name="auto_scroll_description">利用者が有効にした読書中だけ、対象アプリのスクロール領域を判定し、読了ごとに1回スクロールします。画面構造・対象情報へのアクセス権限を使いますが、ユーザー補助機能の文章データは参照・保存・送信しません。本文は画面の画像から端末内で文字認識します。アプリ切替や検知した手動操作で停止します。閉じる・通知の停止・OS設定からも終了できます。</string>
 </resources>

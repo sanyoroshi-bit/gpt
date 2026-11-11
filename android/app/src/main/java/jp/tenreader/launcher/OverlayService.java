@@ -175,6 +175,7 @@ public final class OverlayService extends Service {
         });
         if (getSystemService(KeyguardManager.class).isKeyguardLocked()) bubble.setVisibility(View.GONE);
         windows.addView(bubble, params);
+        OwnOverlayWindows.add(bubble);
         IntentFilter filter = new IntentFilter(); filter.addAction(Intent.ACTION_SCREEN_OFF); filter.addAction(Intent.ACTION_USER_PRESENT);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(screenReceiver, filter);
@@ -217,6 +218,7 @@ public final class OverlayService extends Service {
         if (receiverRegistered) { unregisterReceiver(screenReceiver); receiverRegistered = false; }
         if (watchingPermission) { appOps.stopWatchingMode(permissionChanged); watchingPermission = false; }
         savePosition();
+        OwnOverlayWindows.remove(bubble);
         if (bubble != null && bubble.isAttachedToWindow()) windows.removeView(bubble);
         bubble = null;
         stopForeground(STOP_FOREGROUND_REMOVE);

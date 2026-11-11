@@ -52,6 +52,12 @@ public class NativeReaderLayoutTest {
             Bitmap image=Bitmap.createBitmap(root.getWidth(),root.getHeight(),Bitmap.Config.ARGB_8888);root.draw(new Canvas(image));
             File file=new File("build/reports/native-reader-layout-320.png");file.getParentFile().mkdirs();try(FileOutputStream stream=new FileOutputStream(file)){image.compress(Bitmap.CompressFormat.PNG,100,stream);}image.recycle();
             View close=root.findViewById(R.id.reader_close);assertTrue(close.getWidth()>=44);assertTrue(close.getHeight()>=44);
+            reader.automatic(true,2,()->{},()->{});
+            reader.showDocument(doc,Bitmap.createBitmap(320,720,Bitmap.Config.ARGB_8888),"読了したら次の画面へ進みます。",false);
+            root.measure(View.MeasureSpec.makeMeasureSpec(296,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(696,View.MeasureSpec.AT_MOST));root.layout(0,0,296,root.getMeasuredHeight());
+            assertTrue(root.getHeight()<=696);TextView status=root.findViewById(R.id.reader_status);assertTrue(status.getText().toString().contains("自動 2画面目"));
+            Bitmap autoImage=Bitmap.createBitmap(root.getWidth(),root.getHeight(),Bitmap.Config.ARGB_8888);root.draw(new Canvas(autoImage));
+            File autoFile=new File("build/reports/native-auto-reader-layout-320.png");try(FileOutputStream stream=new FileOutputStream(autoFile)){autoImage.compress(Bitmap.CompressFormat.PNG,100,stream);}autoImage.recycle();
         } finally {reader.close();}
     }
 }

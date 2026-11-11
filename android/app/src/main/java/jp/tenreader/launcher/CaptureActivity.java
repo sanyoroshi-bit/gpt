@@ -6,6 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.projection.MediaProjectionManager;
 import android.os.Bundle;
+import android.os.Build;
+import android.media.projection.MediaProjectionConfig;
 import android.provider.Settings;
 import android.widget.Toast;
 
@@ -16,10 +18,18 @@ public final class CaptureActivity extends Activity {
     private long ticket;
     private boolean delivered;
     static void open(Context context) {
+        open(context,context.getSharedPreferences("native-reader",0).getBoolean("auto-scroll",false));
+    }
+    static void open(Context context,boolean automatic) {
         if (!Settings.canDrawOverlays(context) || context.getSystemService(KeyguardManager.class).isKeyguardLocked()) {
             Toast.makeText(context,"画面ロックを解除し、tenの重ね表示を許可してください。",Toast.LENGTH_LONG).show();return;
         }
-        long ticket=CaptureTicket.begin();
+        ScrollPort.Target target=null;
+        if(automatic){
+            ScrollPort port=ScreenReaderService.scrollFactory.create(context);target=port==null?null:port.snapshot();
+            if(target==null){Toast.makeText(context,"自動スクロールを有効にし、読みたいアプリに戻ってからアイコンを押してください。設定をOFFにすると単発で読めます。",Toast.LENGTH_LONG).show();return;}
+        }
+        long ticket=CaptureTicket.begin(target);
         context.stopService(new Intent(context,ScreenReaderService.class));
         OverlayService.refreshVisibility();
         try { context.startActivity(new Intent(context,CaptureActivity.class).putExtra(TICKET,ticket)
@@ -30,7 +40,12 @@ public final class CaptureActivity extends Activity {
         super.onCreate(state);ticket=getIntent().getLongExtra(TICKET,0);
         if (!CaptureTicket.owns(ticket)) { finishAndRemoveTask();return; }
         if (state==null) {
-            try { startActivityForResult(getSystemService(MediaProjectionManager.class).createScreenCaptureIntent(),REQUEST); }
+            try {
+                MediaProjectionManager manager=getSystemService(MediaProjectionManager.class);
+                Intent request=Build.VERSION.SDK_INT>=34&&CaptureTicket.target(ticket)!=null
+                    ?manager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay()):manager.createScreenCaptureIntent();
+                startActivityForResult(request,REQUEST);
+            }
             catch (RuntimeException e) { finishAndRemoveTask(); }
         }
     }

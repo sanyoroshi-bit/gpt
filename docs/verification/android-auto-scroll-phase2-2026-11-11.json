@@ -1,0 +1,124 @@
+{
+  "version": "0.3.0",
+  "versionCode": 3,
+  "phase": "optional-targeted-auto-scroll",
+  "auditor": "/root/audit_implementation",
+  "approvedScope": ["implementation", "local-validation", "debug-apk-trial-distribution", "main-push", "public-download-verification-record"],
+  "approvalIncludesRealAndroidSuccess": false,
+  "apkBytes": 47740870,
+  "sha256": "07c42b335e7be07fe5e839a7547b6f17d90000ee2f4e0188f2a27de998c6d5e8",
+  "signerCertificateSha256": "d9a8b754451ef083cd6dd2584d6cce95007cd7db2bc8ba46ad9dd23a17020e98",
+  "suites": [
+    {
+      "name": "jp.tenreader.launcher.AutoReadingTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "name": "jp.tenreader.launcher.AutoScrollServiceTest",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "name": "jp.tenreader.launcher.BubbleBoundsTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "name": "jp.tenreader.launcher.LauncherLifecycleTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "name": "jp.tenreader.launcher.NativeReaderLayoutTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "name": "jp.tenreader.launcher.OcrDocumentTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "name": "jp.tenreader.launcher.ScreenReadingTest",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0
+    }
+  ],
+  "tests": 62,
+  "failures": 0,
+  "webRegressionTests": 18,
+  "finalApkDownloadTests": 1,
+  "sourceBuildCopyMismatches": 0,
+  "lintErrors": 0,
+  "lintIssues": [
+    {
+      "id": "UnusedAttribute",
+      "severity": "Warning"
+    }
+  ],
+  "androidApiSimulation": [
+    26,
+    36
+  ],
+  "realAndroidDevices": 0,
+  "realCaptureMlKitOrAutoScrollVerified": false,
+  "nativeAlignment": [
+    {
+      "name": "lib/arm64-v8a/libmlkit_google_ocr_pipeline.so",
+      "bytes": 11064544,
+      "zipMethod": 0,
+      "zip16KAligned": true,
+      "loadAlignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16K": true
+    },
+    {
+      "name": "lib/armeabi-v7a/libmlkit_google_ocr_pipeline.so",
+      "bytes": 6781940,
+      "zipMethod": 0,
+      "zip16KAligned": true,
+      "loadAlignments": [
+        4096,
+        4096,
+        4096
+      ],
+      "supports16K": false
+    },
+    {
+      "name": "lib/x86/libmlkit_google_ocr_pipeline.so",
+      "bytes": 11561048,
+      "zipMethod": 0,
+      "zip16KAligned": true,
+      "loadAlignments": [
+        4096,
+        4096,
+        4096
+      ],
+      "supports16K": false
+    },
+    {
+      "name": "lib/x86_64/libmlkit_google_ocr_pipeline.so",
+      "bytes": 11626128,
+      "zipMethod": 0,
+      "zip16KAligned": true,
+      "loadAlignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "supports16K": true
+    }
+  ],
+  "note": "Frame/OCR pipeline uses fakes; accessibility tests use JVM nodes/events with per-call window snapshot ownership. No actual Android capture, OCR accuracy, or app-specific continuous-reading success claim."
+}

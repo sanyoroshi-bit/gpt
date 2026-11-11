@@ -4,4 +4,5 @@
     <item name="reader_apply" type="id"/><item name="reader_crop" type="id"/>
     <item name="reader_mode" type="id"/><item name="reader_close" type="id"/>
     <item name="reader_next" type="id"/>
+    <item name="auto_scroll_setting" type="id"/>
 </resources>
