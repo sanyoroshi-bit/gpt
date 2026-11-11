@@ -31,9 +31,15 @@ Accessibilityのテストでは、標準RobolectricがgetWindows/getWindowに同
 
 Lintは0 errors／1 warning。警告はisAccessibilityTool属性がAPI31未満で無視される点で、属性のない旧OSで特別な支援機能扱いを要求するものではない。assembleDebug、apksigner v2の検証が成功した。前の版と同じ証明書を使用している。Androidの320px読書欄の描画は `verification/native-auto-reader-layout-320-2026-11-11.png` に記録する。これはJVM描画で実機画像ではない。
 
-最終APKは47,740,870 bytes、SHA-256 `07c42b335e7be07fe5e839a7547b6f17d90000ee2f4e0188f2a27de998c6d5e8`。検証値は `verification/android-auto-scroll-phase2-2026-11-11.json`。Web回帰18件は全成功し、最終APKの配布・320px表示・MIME・チェックサム一致も追加1件で確認した。`verification/android-auto-scroll-download-320-2026-11-11.png` に記録する。公開URLでの取得はpush後に別途確認する。
+最終APKは47,740,870 bytes、SHA-256 `07c42b335e7be07fe5e839a7547b6f17d90000ee2f4e0188f2a27de998c6d5e8`。検証値は `verification/android-auto-scroll-phase2-2026-11-11.json`。Web回帰18件は全成功し、最終APKの配布・320px表示・MIME・チェックサム一致も追加1件で確認した。`verification/android-auto-scroll-download-320-2026-11-11.png` に記録する。
 
 監査担当から「phase2の実装・ローカル検証・試用APK配布、および今回差分のmain反映を承認します」との明示的承認を受領した。監査担当は全ソースとビルドコピー、62件のXML、Lint、署名・16KB配置、権限、APK/SHA一致、Web記録と320px画像を独立確認した。承認対象は上記SHAの実機未確認・デバッグ署名試用版。実機での取得・OCR精度・連続スクロール、特定アプリの対応成功、Play公開は含まない。公開後のURL・APK・SHA・MIME確認と、その観測記録だけの追記・main反映も承認された。
+
+## 公開確認
+
+ソースcommit `fdcdaee52135d85fd52e42ce271ca459042e8876` をmainへ反映し、Vercelのsuccessを確認した。2026-11-11 22:28 JST、公開URL `https://gpt-delta.vercel.app/android.html` は200で試用版0.3と自動スクロール手順・実機未確認を表示。公開APKは200、MIMEはapplication/vnd.android.package-archive、47,740,870 bytes、ZIP magic有効。実際に取得したAPKのSHA-256と公開.sha256はいずれも承認対象の値と一致した。
+
+観測記録は `verification/live-android-auto-scroll-2026-11-11.json`。これは公開HTTP配布の確認であり、Android実機でのインストール・認識・自動操作の確認ではない。
 
 ## 実機未確認の範囲
 

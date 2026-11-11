@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-11-11T13:28:14.710Z",
+  "sourceCommit": "fdcdaee52135d85fd52e42ce271ca459042e8876",
+  "deploymentStatus": "success",
+  "deploymentUrl": "https://vercel.com/yoroshi-next/gpt/4TKVvqVivVRxvYNrwtjFdpiXYY1s",
+  "guideUrl": "https://gpt-delta.vercel.app/android.html",
+  "guideStatus": 200,
+  "guideVersion": "0.3",
+  "guideHasAutoScrollInstructions": true,
+  "guideDisclosesRealDeviceUnverified": true,
+  "apkUrl": "https://gpt-delta.vercel.app/downloads/ten-launcher-debug.apk",
+  "apkStatus": 200,
+  "apkMime": "application/vnd.android.package-archive",
+  "apkBytes": 47740870,
+  "sha256": "07c42b335e7be07fe5e839a7547b6f17d90000ee2f4e0188f2a27de998c6d5e8",
+  "checksumStatus": 200,
+  "checksumMatchesApprovedApk": true,
+  "zipMagic": "504b0304",
+  "realAndroidDevices": 0,
+  "realDeviceSuccessVerified": false
+}
