@@ -7,8 +7,9 @@ import java.util.List;
 /** Conservative suffix/prefix match: uncertainty keeps the entire next text for review. */
 final class PageContinuation {
     static final class Result {
-        final String text;final boolean certain,exhausted;
-        Result(String text,boolean certain,boolean exhausted){this.text=text;this.certain=certain;this.exhausted=exhausted;}
+        final String text;final boolean certain,exhausted;final int consumed;
+        Result(String text,boolean certain,boolean exhausted){this(text,certain,exhausted,0);}
+        Result(String text,boolean certain,boolean exhausted,int consumed){this.text=text;this.certain=certain;this.exhausted=exhausted;this.consumed=consumed;}
     }
     static Result next(String previous,String next){
         String normalized=Normalizer.normalize(next,Normalizer.Form.NFC);
@@ -22,9 +23,9 @@ final class PageContinuation {
             while(matched>0&&!before.get(i).equals(after.get(matched)))matched=prefix[matched-1];
             if(before.get(i).equals(after.get(matched)))matched++;
         }
-        if(matched==after.size())return new Result("",true,true);
+        if(matched==after.size())return new Result("",true,true,matched);
         if(matched<12)return new Result(normalized,false,false);
-        return new Result(ReadingText.strip(normalized.substring(ends.get(matched-1))),true,false);
+        return new Result(ReadingText.strip(normalized.substring(ends.get(matched-1))),true,false,matched);
     }
     static List<String> visible(String text){List<String> result=new ArrayList<>();for(String g:ReadingText.graphemes(Normalizer.normalize(text,Normalizer.Form.NFC)))if(!ReadingText.blank(g))result.add(g);return result;}
 }

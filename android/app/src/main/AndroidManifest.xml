@@ -27,7 +27,7 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-requested on-device OCR of an approved visible screen, followed by a stoppable reading overlay. Captured images and text are not persisted." />
         </service>
-        <service android:name=".OverlayService" android:exported="false" android:foregroundServiceType="specialUse">
+        <service android:name=".OverlayService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-enabled movable reading launcher overlay; visible until the user hides it. No screen capture or background content reading." />
         </service>

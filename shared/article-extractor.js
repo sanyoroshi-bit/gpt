@@ -1,5 +1,6 @@
 import {Readability} from '@mozilla/readability';
 import {normalizeArticleUrl} from './article-input.js';
+import {paginationInfo,hasNumberedContinuation} from './article-pagination.js';
 
 // These selectors are fallbacks for known article layouts, not a live compatibility claim.
 export const SITE_RULES=[
@@ -12,7 +13,7 @@ export const SITE_RULES=[
  {id:'itmedia',name:'ITmedia',host:h=>h==='itmedia.co.jp'||h.endsWith('.itmedia.co.jp'),selectors:['#cmsBody']},
 ];
 const BLOCKS=new Set(['ADDRESS','ARTICLE','ASIDE','BLOCKQUOTE','DIV','DL','DT','DD','FIGCAPTION','FIGURE','H1','H2','H3','H4','H5','H6','HR','LI','MAIN','OL','P','PRE','SECTION','TABLE','TR','UL']);
-const NOISE='script,style,noscript,template,rt,rp,nav,footer,form,button,input,select,textarea,iframe,svg,[hidden],[aria-hidden="true"],[role="navigation"],.mw-editsection,.navbox,.vertical-navbox,.toc,.reflist .mw-cite-backlink,.entry-footer,.related-articles,.recommended-articles,.social-share,.share-buttons,.sharedaddy,.jp-relatedposts,[data-ad],.advertisement';
+const NOISE='script,style,noscript,template,rt,rp,nav,footer,form,button,input,select,textarea,iframe,svg,table,figure,figcaption,h1,h2,h3,h4,h5,h6,[role="heading"],.pagination,.pager,[hidden],[aria-hidden="true"],[role="navigation"],.mw-editsection,.navbox,.vertical-navbox,.toc,.reflist .mw-cite-backlink,.entry-footer,.related-articles,.recommended-articles,.social-share,.share-buttons,.sharedaddy,.jp-relatedposts,[data-ad],.advertisement';
 export function articleError(code,message){const error=new Error(message);error.code=code;return error;}
 function clean(node){
  const copy=node.cloneNode(true);
@@ -54,7 +55,7 @@ function textCandidate(node){
  const copy=clean(node),text=readableText(copy);
  const links=[...copy.querySelectorAll('a')].reduce((sum,a)=>sum+a.textContent.trim().length,0);
  if(text.replace(/\s/g,'').length<40||links>text.length*.65)return null;
- return {text,hasMedia:!!copy.querySelector('img,picture,video,table,math'),node:copy};
+ return {text,hasMedia:!!node.querySelector('img,picture,video,table,math,figure'),node:copy};
 }
 function bestNode(doc,selectors){
  for(const selector of selectors){
@@ -82,11 +83,12 @@ export function extractDocument(doc,inputUrl){
  }
  if(!candidate){
   try{
-   const article=new Readability(doc.cloneNode(true),{maxElemsToParse:100000}).parse();
+   // Readability may unwrap a simple table into paragraphs; remove non-body nodes first.
+   const article=new Readability(clean(doc),{maxElemsToParse:100000}).parse();
    if(article?.content){
     const holder=doc.createElement('div');holder.innerHTML=article.content;
     candidate=textCandidate(holder);
-    if(candidate){method='readability';title=article.title||title;}
+    if(candidate){candidate.hasMedia||=!!doc.querySelector('article table,article figure,main table,main figure');method='readability';title=article.title||title;}
    }
   }catch{/* A final metadata fallback can still work on an unusual layout. */}
  }
@@ -99,5 +101,6 @@ export function extractDocument(doc,inputUrl){
  if(candidate.text.length>200000)throw articleError('ARTICLE_TOO_LONG','記事が長すぎます。必要な部分を文章として貼り付けてください。');
  if(candidate.hasMedia)warnings.push(source?'図・写真・表は速読の文章に含まれません。「元記事を開く」から確認できます。':'図・写真・表は速読の文章に含まれません。保存した元のページも確認してください。');
  if(candidate.text.replace(/\s/g,'').length<200)warnings.push('取得した本文が短いため、記事の一部だけの可能性があります。元記事と確認してください。');
- return {title:String(title).replace(/\s+/g,' ').trim().slice(0,300),text:candidate.text,source,site:site?.name||host||'保存したページ',method,warnings};
+ const pagination=source&&!restricted?paginationInfo(doc,source):null;
+ return {title:String(title).replace(/\s+/g,' ').trim().slice(0,300),text:candidate.text,source,site:site?.name||host||'保存したページ',method,warnings,pagination,paginationUnverified:!!(source&&!restricted&&(pagination?.unverified||!pagination&&hasNumberedContinuation(doc,source)))};
 }

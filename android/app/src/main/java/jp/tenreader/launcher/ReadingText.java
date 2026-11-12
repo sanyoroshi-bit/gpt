@@ -25,16 +25,15 @@ final class ReadingText {
     }
 
     static List<String> tokenize(String original, String mode) {
+        return tokenize(original,mode,java.util.Collections.emptyList());
+    }
+    static List<String> tokenize(String original,String mode,List<String> protectedTerms){
         String text = Normalizer.normalize(original, Normalizer.Form.NFC);
         List<String> result = new ArrayList<>();
         if ("character".equals(mode)) { for (String g : graphemes(text)) if (!blank(g)) result.add(g); return result; }
-        BreakIterator words = BreakIterator.getWordInstance(Locale.JAPANESE);
         for (String line : text.split("[\r\n\u2028\u2029]+")) {
-            words.setText(line);
             StringBuilder chunk = new StringBuilder();
-            int start = words.first();
-            for (int end = words.next(); end != BreakIterator.DONE; start = end, end = words.next()) {
-                String unit = line.substring(start, end);
+            for (String unit:wholeGraphemes(line,JapaneseWords.split(line,protectedTerms))) {
                 if (blank(unit)) {if("phrase".equals(mode)&&chunk.length()>0)chunk.append(unit);continue;}
                 boolean closing = unit.matches("[\\p{Pe}\\p{Pf}、。，．！？!?…,:;]+" );
                 if (chunk.length() > 0 && !chunk.toString().matches("[\\p{Ps}\\p{Pi}「『]+") && !closing && ("word".equals(mode) || graphemes(chunk+unit).size() > 6)) {
@@ -46,6 +45,12 @@ final class ReadingText {
             split(result, chunk.toString());
         }
         return result;
+    }
+    private static List<String> wholeGraphemes(String line,List<String> pieces){
+        java.util.Set<Integer> ends=new java.util.HashSet<>();int offset=0;for(String g:graphemes(line)){offset+=g.length();ends.add(offset);}
+        List<String> safe=new ArrayList<>();StringBuilder pending=new StringBuilder();offset=0;
+        for(String piece:pieces){pending.append(piece);offset+=piece.length();if(ends.contains(offset)){safe.add(pending.toString());pending.setLength(0);}}
+        if(pending.length()>0)safe.add(pending.toString());return safe;
     }
     private static void split(List<String> result, String text) {
         List<String> chars = graphemes(text);

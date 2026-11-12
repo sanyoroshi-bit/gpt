@@ -32,6 +32,8 @@ public final class AutoScrollService extends AccessibilityService implements Scr
     private Runnable interrupted;
     private Consumer<Boolean> pending;
     private Rect pendingBounds;
+    private Rect verticalBounds;
+    private String verticalClass;
     private boolean sawScroll;
     private final Runnable settled=()->finishScroll(sawScroll);
     private final Runnable deadline=()->finishScroll(false);
@@ -112,14 +114,22 @@ public final class AutoScrollService extends AccessibilityService implements Scr
             while(!todo.isEmpty()&&nodes.size()<1000){
                 AccessibilityNodeInfo node=todo.removeFirst();nodes.add(node);
                 Rect bounds=new Rect();node.getBoundsInScreen(bounds);
-                boolean forward=false;for(AccessibilityNodeInfo.AccessibilityAction action:node.getActionList())if(action.getId()==AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN.getId()||action.getId()==AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)forward=true;
-                if(node.getWindowId()==target.windowId&&target.packageName.contentEquals(node.getPackageName()==null?"":node.getPackageName())&&node.isVisibleToUser()&&node.isScrollable()&&forward&&target.windowBounds.contains(bounds)&&bounds.width()>=target.bounds.width()*.4&&bounds.height()>=target.bounds.height()*.4){
-                    long area=(long)bounds.width()*bounds.height();if(area>bestArea){best=node;bestArea=area;}
+                String className=node.getClassName()==null?"":node.getClassName().toString();
+                boolean down=hasAction(node,AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN.getId());
+                boolean horizontal=hasAction(node,AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_LEFT.getId())||hasAction(node,AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_RIGHT.getId());
+                boolean vertical=down||!horizontal&&knownVertical(className)&&hasAction(node,AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
+                boolean locked=verticalBounds==null||verticalBounds.equals(bounds)&&verticalClass.equals(className);
+                if(node.getWindowId()==target.windowId&&target.packageName.contentEquals(node.getPackageName()==null?"":node.getPackageName())&&node.isVisibleToUser()&&node.isScrollable()&&vertical&&!className.contains("ViewPager")&&locked&&target.windowBounds.contains(bounds)&&bounds.width()>=target.bounds.width()*.4&&bounds.height()>=target.bounds.height()*.4){
+                    long area=(long)bounds.width()*bounds.height();
+                    // An inner vertical article takes precedence over an enclosing container.
+                    Rect chosen=new Rect();if(best!=null)best.getBoundsInScreen(chosen);
+                    if(best==null||chosen.contains(bounds)||!bounds.contains(chosen)&&area>bestArea){best=node;bestArea=area;}
                 }
                 for(int i=0;i<node.getChildCount()&&todo.size()+nodes.size()<1000;i++){AccessibilityNodeInfo child=node.getChild(i);if(child!=null)todo.addLast(child);}
             }
             nodes.addAll(todo);if(best==null)return false;
             pending=callback;pendingBounds=new Rect();best.getBoundsInScreen(pendingBounds);pendingSince=SystemClock.uptimeMillis();sawScroll=false;
+            verticalBounds=new Rect(pendingBounds);verticalClass=best.getClassName()==null?"":best.getClassName().toString();
             int action=AccessibilityNodeInfo.ACTION_SCROLL_FORWARD;
             for(AccessibilityNodeInfo.AccessibilityAction item:best.getActionList())if(item.getId()==AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN.getId())action=item.getId();
             handler.postDelayed(deadline,1400);
@@ -130,6 +140,8 @@ public final class AutoScrollService extends AccessibilityService implements Scr
         }catch(RuntimeException e){clearPending();return false;}
         finally{for(int i=1;i<nodes.size();i++)nodes.get(i).recycle();}
     }
+    private static boolean hasAction(AccessibilityNodeInfo node,int id){for(AccessibilityNodeInfo.AccessibilityAction action:node.getActionList())if(action.getId()==id)return true;return false;}
+    private static boolean knownVertical(String name){return name.equals("android.widget.ScrollView")||name.endsWith(".NestedScrollView")||name.equals("android.widget.ListView")||name.equals("android.widget.ExpandableListView");}
     @Override public void onAccessibilityEvent(AccessibilityEvent event){
         if(owner==0||!CaptureTicket.owns(owner))return;
         int type=event.getEventType();String pkg=event.getPackageName()==null?"":event.getPackageName().toString();
@@ -138,6 +150,7 @@ public final class AutoScrollService extends AccessibilityService implements Scr
         if(type==AccessibilityEvent.TYPE_VIEW_CLICKED){cancel();return;}
         if(type==AccessibilityEvent.TYPE_VIEW_SCROLLED){
             if(pending==null||event.getWindowId()!=target.windowId||!pkg.equals(target.packageName)||event.getEventTime()<pendingSince){cancel();return;}
+            if(Build.VERSION.SDK_INT>=28&&event.getScrollDeltaX()!=0&&event.getScrollDeltaY()==0){cancel();return;}
             AccessibilityNodeInfo source=event.getSource();
             try{
                 Rect bounds=new Rect();if(source==null){cancel();return;}source.getBoundsInScreen(bounds);
@@ -158,8 +171,8 @@ public final class AutoScrollService extends AccessibilityService implements Scr
         boolean valid=CaptureTicket.owns(owner)&&matches(target);clearPending();callback.accept(moved&&valid);
     }
     private void clearPending(){handler.removeCallbacks(settled);handler.removeCallbacks(deadline);pending=null;pendingBounds=null;sawScroll=false;}
-    private void cancel(){Runnable callback=interrupted;owner=0;target=null;interrupted=null;handler.removeCallbacksAndMessages(null);clearPending();if(callback!=null)callback.run();}
-    @Override public void end(long ticket){if(owner!=ticket)return;owner=0;target=null;interrupted=null;handler.removeCallbacksAndMessages(null);clearPending();}
+    private void cancel(){Runnable callback=interrupted;owner=0;target=null;verticalBounds=null;verticalClass=null;interrupted=null;handler.removeCallbacksAndMessages(null);clearPending();if(callback!=null)callback.run();}
+    @Override public void end(long ticket){if(owner!=ticket)return;owner=0;target=null;verticalBounds=null;verticalClass=null;interrupted=null;handler.removeCallbacksAndMessages(null);clearPending();}
     @Override public void onInterrupt(){cancel();}
     @Override public boolean onUnbind(Intent intent){cancel();if(current.get()==this)current.clear();return super.onUnbind(intent);}
     @Override public void onDestroy(){cancel();if(current.get()==this)current.clear();super.onDestroy();}

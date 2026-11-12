@@ -28,10 +28,11 @@ public class ScreenReadingTest {
     private FakeFrames frames;
     private FakeOcr ocr;
     @Before public void setup(){
+        ReaderOverlay.textExecutor=Runnable::run;
         CaptureTicket.cancelAll();ShadowSettings.setCanDrawOverlays(true);
         frames=new FakeFrames();ocr=new FakeOcr();ScreenReaderService.frameFactory=(c,h)->frames;ScreenReaderService.ocrFactory=()->ocr;
     }
-    @After public void cleanup(){CaptureTicket.cancelAll();ScreenReaderService.frameFactory=ProjectionFrameSource::new;ScreenReaderService.ocrFactory=JapaneseOcrEngine::new;}
+    @After public void cleanup(){CaptureTicket.cancelAll();ReaderOverlay.textExecutor=ReaderOverlay.DEFAULT_TEXT_EXECUTOR;ScreenReaderService.frameFactory=ProjectionFrameSource::new;ScreenReaderService.ocrFactory=JapaneseOcrEngine::new;}
     static final class FakeFrames implements FrameSource {
         Callback callback;int starts,closes;
         @Override public void start(Intent consent,Callback callback){assertNotNull(consent);starts++;this.callback=callback;}
@@ -49,6 +50,15 @@ public class ScreenReadingTest {
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(301));return controller;
     }
     private static OcrDocument document(){return new OcrDocument(200,400,List.of(new OcrDocument.Line("今日は新しい本を読みます。",10,70,190,100),new OcrDocument.Line("本文を一点で読み進めます。",10,110,190,140)));}
+    @Test public void closingReaderRestoresFloatingIconAndKeepsLauncherAlive(){
+        ServiceController<OverlayService> launcher=Robolectric.buildService(OverlayService.class).create();launcher.get().onStartCommand(new Intent(),0,1);
+        ServiceController<ScreenReaderService> reader=start(CaptureTicket.begin());
+        try{
+            android.view.View bubble=org.robolectric.util.ReflectionHelpers.getField(launcher.get(),"bubble");OverlayService.refreshVisibility();assertEquals(android.view.View.GONE,bubble.getVisibility());
+            reader.get().onStartCommand(new Intent().setAction(ScreenReaderService.STOP),0,3);launcher.get().sendBroadcast(new Intent(Intent.ACTION_SCREEN_ON));shadowOf(Looper.getMainLooper()).idle();
+            assertEquals(android.view.View.VISIBLE,bubble.getVisibility());assertTrue(OverlayService.isRunning());assertFalse(shadowOf(launcher.get()).isStoppedBySelf());
+        }finally{reader.destroy();launcher.destroy();}
+    }
 
     @Test public void consentStartsOnlyOneCaptureAndOcrReleasesImageAfterCompletion(){
         long ticket=CaptureTicket.begin();ServiceController<ScreenReaderService> controller=start(ticket);
@@ -158,6 +168,7 @@ public class ScreenReadingTest {
         OcrDocument doc=new OcrDocument(400,800,List.of(new OcrDocument.Line(english,10,100,390,150)));
         try{
             reader.showDocument(doc,Bitmap.createBitmap(400,800,Bitmap.Config.ARGB_8888));
+            shadowOf(Looper.getMainLooper()).idle();
             reader.view().findViewById(R.id.reader_next).performClick();
             List<String> phrases=ReadingText.tokenize(english,"phrase");int prefix=0;for(int i=0;i<5;i++)prefix+=phrases.get(i).replaceAll("\\s","").length();
             android.widget.Spinner modes=reader.view().findViewById(R.id.reader_mode);modes.setSelection(2);shadowOf(Looper.getMainLooper()).idle();

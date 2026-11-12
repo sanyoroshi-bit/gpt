@@ -36,7 +36,7 @@ public final class ScreenReaderService extends Service {
     private long ticket,frameGeneration;
     private boolean live,started,watching,opsWatching,automatic,awaitingFrame,transitioning;
     private int pages;
-    private String lastPage="";
+    private String lastPage="",lastRawPage="";
     private final Set<String> seen=new HashSet<>();
     private Intent consent;
     private FrameSource frames;
@@ -140,17 +140,27 @@ public final class ScreenReaderService extends Service {
             if(automatic&&!scoped()){stopReading();return;}
             handler.removeCallbacks(timeout);
             if(document==null||document.lines.isEmpty()){fail("文字を読み取れませんでした。保護画面には対応していません。画面を変えるか再試行してください。");return;}
-            String full=document.text(document.bodyRegion()),selected=full,notice="";boolean autoplay=ReadingText.visibleCount(full)>=12;
+            BodyLayout.Selection body=document.body();String raw=document.rawText();
+            String full=body.text(),selected=full,notice="";boolean autoplay=ReadingText.visibleCount(full)>=12;
+            boolean skippedNonBody=false;
             if(automatic){
-                String hash=fingerprint(full);
+                String hash=fingerprint(raw);
                 if(seen.contains(hash)){fail("同じ本文が繰り返されたため自動読書を終了しました。画面末尾か、スクロールできない画面です。");return;}
                 if(pages>0){
                     PageContinuation.Result next=PageContinuation.next(lastPage,full);
-                    if(next.exhausted){fail("新しい本文を確認できなかったため、自動読書を終了しました。");return;}
-                    if(!next.certain){notice="続きの一致を確認できず、自動スクロールを停止しました。本文を確認して再生してください。";suspendAutomatic(notice);autoplay=false;}
-                    else {selected=next.text;autoplay=!ReadingText.blank(selected);}
+                    PageContinuation.Result rawNext=PageContinuation.next(lastRawPage,raw);
+                    if(next.certain&&!next.exhausted){selected=next.text;autoplay=!ReadingText.blank(selected);}
+                    else if(rawNext.certain&&!rawNext.exhausted){selected=document.bodyAfterRawPrefix(rawNext.consumed);autoplay=!ReadingText.blank(selected);skippedNonBody=ReadingText.blank(selected)&&document.unreadIsNonBody(rawNext.consumed);}
+                    else if(!body.onlyNonBody){notice="続きの一致を確認できず、自動スクロールを停止しました。本文を確認して再生してください。";suspendAutomatic(notice);autoplay=false;}
                 }
-                if(automatic){pages++;lastPage=full;seen.add(hash);}
+                if(automatic){pages++;if(!full.isEmpty())lastPage=full;lastRawPage=raw;seen.add(hash);}
+                if(automatic&&ReadingText.blank(selected)){
+                    if(body.onlyNonBody||skippedNonBody){handler.post(this::nextPage);return;}
+                    notice="新しい本文を確認できないため、自動読書を停止しました。範囲と全文を確認してください。";suspendAutomatic(notice);autoplay=false;
+                }
+            }
+            if(full.isEmpty()){
+                notice="本文を特定できませんでした。全文と範囲を確認してください。";suspendAutomatic(notice);selected=raw;autoplay=false;
             }
             int width=Math.min(600,current.image.getWidth()),height=Math.max(1,Math.round(current.image.getHeight()*(width/(float)current.image.getWidth())));
             Bitmap preview=Bitmap.createScaledBitmap(current.image,width,height,true);if(preview==current.image)preview=current.image.copy(Bitmap.Config.ARGB_8888,false);
@@ -174,12 +184,12 @@ public final class ScreenReaderService extends Service {
                 awaitingFrame=true;
                 if(!frames.request(frameCallback(++frameGeneration)))fail("次の画面を取得できませんでした。再取得は単発になります。");
             }));
-            if(!requested)suspendAutomatic("この画面は自動スクロールに対応していません。単発の読み取りは利用できます。");
+            if(!requested)suspendAutomatic("同じ記事の下方向への移動ができないため、ここで停止しました。横の別記事へは進みません。");
         },150);
     }
     private void suspendAutomatic(String message){
         automatic=false;awaitingFrame=false;transitioning=false;frameGeneration++;handler.removeCallbacks(timeout);closeFrames();
-        if(scroller!=null)scroller.end(ticket);scroller=null;target=null;lastPage="";seen.clear();
+        if(scroller!=null)scroller.end(ticket);scroller=null;target=null;lastPage="";lastRawPage="";seen.clear();
         if(live)foreground(false);
         if(overlay!=null){overlay.setHidden(false);overlay.automatic(false,pages,null,null);overlay.notice(message);}
     }
@@ -213,7 +223,7 @@ public final class ScreenReaderService extends Service {
     private void finishSession(){
         live=false;started=false;automatic=false;awaitingFrame=false;transitioning=false;frameGeneration++;
         handler.removeCallbacksAndMessages(null);closeFrames();job=null;
-        if(scroller!=null)scroller.end(ticket);scroller=null;target=null;lastPage="";seen.clear();pages=0;
+        if(scroller!=null)scroller.end(ticket);scroller=null;target=null;lastPage="";lastRawPage="";seen.clear();pages=0;
         if(overlay!=null){overlay.close();overlay=null;}
         if(watching){unregisterReceiver(screenOff);watching=false;}if(opsWatching){appOps.stopWatchingMode(permission);opsWatching=false;}
         CaptureTicket.end(ticket);OverlayService.refreshVisibility();stopForeground(STOP_FOREGROUND_REMOVE);

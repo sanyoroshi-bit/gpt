@@ -17,17 +17,23 @@ interface OcrEngine extends AutoCloseable {
 }
 
 final class JapaneseOcrEngine implements OcrEngine {
+    private static final java.util.concurrent.Executor RESULTS=java.util.concurrent.Executors.newSingleThreadExecutor(task->{Thread t=new Thread(task,"ten-layout-analysis");t.setDaemon(true);return t;});
     private final TextRecognizer recognizer=TextRecognition.getClient(new JapaneseTextRecognizerOptions.Builder().build());
     @Override public void read(Bitmap bitmap,Callback callback) {
         int width=bitmap.getWidth(),height=bitmap.getHeight();
-        recognizer.process(InputImage.fromBitmap(bitmap,0)).addOnCompleteListener(task->{
+        recognizer.process(InputImage.fromBitmap(bitmap,0)).addOnCompleteListener(RESULTS,task->{
             if(!task.isSuccessful()){callback.complete(null);return;}
-            List<OcrDocument.Line> lines=new ArrayList<>();int characters=0;
-            for(com.google.mlkit.vision.text.Text.TextBlock block:task.getResult().getTextBlocks())for(com.google.mlkit.vision.text.Text.Line line:block.getLines()) {
+            OcrDocument document;
+            try{
+            List<OcrDocument.Line> lines=new ArrayList<>();int characters=0,blockId=0;
+            for(com.google.mlkit.vision.text.Text.TextBlock block:task.getResult().getTextBlocks()){for(com.google.mlkit.vision.text.Text.Line line:block.getLines()) {
                 Rect rect=line.getBoundingBox();String text=line.getText();characters+=text.length();
-                if(rect!=null && !text.trim().isEmpty() && characters<=200000)lines.add(new OcrDocument.Line(text,rect.left,rect.top,rect.right,rect.bottom));
-            }
-            callback.complete(new OcrDocument(width,height,lines));
+                List<OcrDocument.Line> elements=new ArrayList<>();for(com.google.mlkit.vision.text.Text.Element element:line.getElements()){Rect box=element.getBoundingBox();if(box!=null)elements.add(new OcrDocument.Line(element.getText(),box.left,box.top,box.right,box.bottom));}
+                if(rect!=null && !text.trim().isEmpty() && characters<=200000)lines.add(new OcrDocument.Line(text,rect.left,rect.top,rect.right,rect.bottom,blockId,elements));
+            }blockId++;}
+            document=new OcrDocument(width,height,lines);document.body();
+            }catch(RuntimeException|OutOfMemoryError e){callback.complete(null);return;}
+            callback.complete(document);
         });
     }
     @Override public void close() {recognizer.close();}

@@ -69,7 +69,7 @@ public final class OverlayService extends Service {
     };
 
     static boolean isRunning() { return running; }
-    @Override public void onCreate(){super.onCreate();instance=new WeakReference<>(this);}
+    @Override public void onCreate(){super.onCreate();instance=new WeakReference<>(this);screenAvailable=getSystemService(android.os.PowerManager.class).isInteractive();}
     static void refreshVisibility(){
         OverlayService service=instance.get();
         if(service==null)return;
@@ -81,10 +81,10 @@ public final class OverlayService extends Service {
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null || STOP.equals(intent.getAction()) || !Settings.canDrawOverlays(this)) {
+        if ((intent!=null&&STOP.equals(intent.getAction())) || !Settings.canDrawOverlays(this)) {
             stopSelf(); return START_NOT_STICKY;
         }
-        if (bubble != null) return START_NOT_STICKY;
+        if (bubble != null) return START_STICKY;
         try {
             NotificationManager manager = getSystemService(NotificationManager.class);
             manager.createNotificationChannel(new NotificationChannel(CHANNEL, "tenの起動ボタン", NotificationManager.IMPORTANCE_LOW));
@@ -101,14 +101,17 @@ public final class OverlayService extends Service {
             else startForeground(1, notification);
             addBubble();
             running = true;
+            refreshVisibility();
             updateTile();
             sendBroadcast(new Intent(STATE_CHANGED).setPackage(getPackageName()));
         } catch (RuntimeException e) {
             Toast.makeText(this, "起動ボタンを表示できません。重ね表示の許可を確認してください。", Toast.LENGTH_LONG).show();
             stopSelf();
+            return START_NOT_STICKY;
         }
-        // No boot receiver or sticky restart: displaying the overlay always follows a user action.
-        return START_NOT_STICKY;
+        // The OS may restore only this launcher after process reclamation. Capture never restarts.
+        // Explicit stopSelf/stopService still ends the service; there is no boot receiver.
+        return START_STICKY;
     }
 
     // Taps call performClick() and holds call performLongClick(); accessibility uses the same registered listeners.
@@ -176,7 +179,7 @@ public final class OverlayService extends Service {
         if (getSystemService(KeyguardManager.class).isKeyguardLocked()) bubble.setVisibility(View.GONE);
         windows.addView(bubble, params);
         OwnOverlayWindows.add(bubble);
-        IntentFilter filter = new IntentFilter(); filter.addAction(Intent.ACTION_SCREEN_OFF); filter.addAction(Intent.ACTION_USER_PRESENT);
+        IntentFilter filter = new IntentFilter(); filter.addAction(Intent.ACTION_SCREEN_OFF);filter.addAction(Intent.ACTION_SCREEN_ON); filter.addAction(Intent.ACTION_USER_PRESENT);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(screenReceiver, filter);
         receiverRegistered = true;

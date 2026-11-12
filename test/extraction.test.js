@@ -14,10 +14,10 @@ const fixtures=[
  ['nhk','https://www3.nhk.or.jp/news/test','<div class="content--detail-body">','</div>'],
  ['itmedia','https://www.itmedia.co.jp/news/test','<div id="cmsBody">','</div>'],
 ];
-for(const [name,url,start,end] of fixtures)test(`${name}: known article structure keeps body and captions, excludes menus and related content`,()=>{
+for(const [name,url,start,end] of fixtures)test(`${name}: known article structure keeps prose, excludes headings, captions and related content`,()=>{
  const html=`<html><title>読む時間</title><nav>会員登録メニュー</nav>${start}${body}<div class="related-articles">おすすめ商品の広告</div><p hidden>隠された本文</p>${end}<footer>運営会社</footer></html>`;
  const result=extract(html,url);assert.equal(result.method,'site:'+name);
- assert.match(result.text,/朝の読書\n/);assert.ok(result.text.includes(first));assert.ok(result.text.includes(second));assert.ok(result.text.includes('図1：読む順番'));
+ assert.ok(!result.text.includes('朝の読書\n'));assert.ok(result.text.includes(first));assert.ok(result.text.includes(second));assert.ok(!result.text.includes('図1：読む順番'));
  for(const unwanted of ['会員登録','広告','運営会社','隠された'])assert.ok(!result.text.includes(unwanted));
  assert.ok(result.warnings.some(w=>w.includes('図・写真・表')));assert.equal(result.source,new URL(url).href);
 });
@@ -40,10 +40,14 @@ test('structured data selects matching article, tolerates malformed JSON, and ne
  assert.equal(extract(html,'https://example.org/current').text,first);
  assert.equal(extract(html+`<div itemprop="articleBody"><p>${second}</p></div>`,'https://example.org/current').text,second);
 });
-test('table cells and paragraph boundaries remain separate; challenge pages are not treated as articles',()=>{
+test('table cells are excluded while surrounding prose remains; challenge pages are not treated as articles',()=>{
  const html=`<div itemprop="articleBody"><p>${first}</p><table><tr><th>朝</th><th>夜</th></tr><tr><td>10</td><td>20</td></tr></table></div>`;
- const r=extract(html,'https://example.org/article');assert.match(r.text,/朝\t夜/);assert.match(r.text,/10\t20/);
+ const r=extract(html,'https://example.org/article');assert.ok(r.text.includes(first));assert.ok(!r.text.includes('朝\t夜'));assert.ok(!r.text.includes('10\t20'));
  assert.throws(()=>extract(`<title>Just a moment...</title><p>${first}</p>`,'https://example.org/article'),/アクセス確認/);
+});
+test('Readability cannot unwrap a one-cell table and reintroduce it as prose',()=>{
+ const r=extract(`<title>本文を読む</title><article><h1>除外する見出し</h1><p>${first}</p><table><tr><td>除外する表の一セル</td></tr></table><p>${second}</p></article>`,'https://example.org/article');
+ assert.equal(r.method,'readability');assert.ok(r.text.includes(first));assert.ok(r.text.includes(second));assert.ok(!r.text.includes('除外する表'));assert.ok(!r.text.includes('除外する見出し'));
 });
 test('URLs can come from share text or Markdown; long shared passages stay intact',()=>{
  const url='https://note.com/deeptech/n/ndd8646916e9c';

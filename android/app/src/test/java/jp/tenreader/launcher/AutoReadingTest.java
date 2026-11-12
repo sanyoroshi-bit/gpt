@@ -43,8 +43,8 @@ public class AutoReadingTest {
         @Override public boolean forward(long ticket,Target t,Consumer<Boolean> callback){if(!canScroll)return false;actions++;callback.accept(moved);return true;}
         @Override public void end(long ticket){ends++;interrupted=null;}
     }
-    @Before public void setup(){CaptureTicket.cancelAll();ShadowSettings.setCanDrawOverlays(true);frames=new FakeFrames();scroll=new FakeScroll();ScreenReaderService.frameFactory=(c,h)->frames;ScreenReaderService.ocrFactory=()->{ScreenReadingTest.FakeOcr job=new ScreenReadingTest.FakeOcr();jobs.add(job);return job;};ScreenReaderService.scrollFactory=c->scroll;}
-    @After public void cleanup(){CaptureTicket.cancelAll();ScreenReaderService.frameFactory=ProjectionFrameSource::new;ScreenReaderService.ocrFactory=JapaneseOcrEngine::new;ScreenReaderService.scrollFactory=c->AutoScrollService.port();}
+    @Before public void setup(){ReaderOverlay.textExecutor=Runnable::run;CaptureTicket.cancelAll();ShadowSettings.setCanDrawOverlays(true);frames=new FakeFrames();scroll=new FakeScroll();ScreenReaderService.frameFactory=(c,h)->frames;ScreenReaderService.ocrFactory=()->{ScreenReadingTest.FakeOcr job=new ScreenReadingTest.FakeOcr();jobs.add(job);return job;};ScreenReaderService.scrollFactory=c->scroll;}
+    @After public void cleanup(){ReaderOverlay.textExecutor=ReaderOverlay.DEFAULT_TEXT_EXECUTOR;CaptureTicket.cancelAll();ScreenReaderService.frameFactory=ProjectionFrameSource::new;ScreenReaderService.ocrFactory=JapaneseOcrEngine::new;ScreenReaderService.scrollFactory=c->AutoScrollService.port();}
     private ServiceController<ScreenReaderService> start(){
         long ticket=CaptureTicket.begin(scroll.target);
         ServiceController<ScreenReaderService> controller=Robolectric.buildService(ScreenReaderService.class).create();
@@ -96,6 +96,37 @@ public class AutoReadingTest {
     @Test public void oldFrameCallbackIsRejectedDuringNextRequest(){
         ServiceController<ScreenReaderService> controller=start();
         try{FrameSource.Callback old=frames.callback;frame();complete("最初の本文です。"+OVERLAP);shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2));Bitmap stale=Bitmap.createBitmap(200,400,Bitmap.Config.ARGB_8888);old.frame(stale,new CaptureGeometry(200,400,200,400));assertTrue(stale.isRecycled());assertEquals(1,jobs.size());}finally{controller.destroy();}
+    }
+    private OcrDocument tableViewport(int from,int to,String before,String after){
+        List<OcrDocument.Line> lines=new ArrayList<>();int y=30;
+        if(!before.isEmpty()){lines.add(new OcrDocument.Line(before,5,y,95,y+14));y+=35;}
+        for(int i=from;i<=to;i++){lines.add(new OcrDocument.Line("項目"+i,5,y,40,y+14));lines.add(new OcrDocument.Line((100+i)+"億円",55,y,95,y+14));y+=24;}
+        if(!after.isEmpty())lines.add(new OcrDocument.Line(after,5,y+15,95,y+29));return new OcrDocument(100,400,lines);
+    }
+    private void completeDocument(OcrDocument doc){jobs.get(jobs.size()-1).callback.complete(doc);shadowOf(Looper.getMainLooper()).idle();}
+    @Test public void tableOnlyViewportDoesNotEndArticleAndProseAfterItIsRecovered(){
+        ServiceController<ScreenReaderService> controller=start();
+        try{
+            frame();completeDocument(tableViewport(0,3,"表の前の本文をすべて読み進めます。",""));shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(3));assertEquals(1,frames.requests);
+            frame();completeDocument(tableViewport(1,6,"",""));shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(200));assertEquals(2,frames.requests);assertEquals(0,frames.closes);
+            frame();completeDocument(tableViewport(4,6,"","図表が終わった後にも本文が続きます。"));shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50));assertEquals(0,frames.closes);assertTrue(CaptureTicket.busy());
+        }finally{controller.destroy();}
+    }
+    @Test public void alreadyReadProseAboveNewTableRowsDoesNotLeaveAnEmptyAutomaticReader(){
+        ServiceController<ScreenReaderService> controller=start();String before="表の前の本文をすべて読み進めます。";
+        try{
+            frame();completeDocument(tableViewport(0,3,before,""));shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(3));assertEquals(1,frames.requests);
+            frame();completeDocument(tableViewport(0,6,before,""));shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(200));assertEquals(2,frames.requests);assertEquals(0,frames.closes);
+            frame();completeDocument(tableViewport(4,6,"","図表の下の新しい本文を読み取ります。"));shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50));assertEquals(0,frames.closes);
+        }finally{controller.destroy();}
+    }
+    @Test public void articleEndingWithTableShowsStopReasonInsteadOfPerpetualLoading(){
+        ServiceController<ScreenReaderService> controller=start();
+        try{
+            frame();completeDocument(tableViewport(0,3,"表の前の本文をすべて読み進めます。",""));shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(3));
+            scroll.canScroll=false;frame();completeDocument(tableViewport(1,6,"",""));shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(200));assertEquals(1,frames.closes);
+            ReaderOverlay overlay=org.robolectric.util.ReflectionHelpers.getField(controller.get(),"overlay");android.widget.TextView status=overlay.view().findViewById(R.id.reader_status);assertTrue(status.getText().toString(),status.getText().toString().contains("下方向"));assertTrue(overlay.view().findViewById(R.id.reader_close).isShown());
+        }finally{controller.destroy();}
     }
     @Test public void pageLimitStopsBeforeIssuingFiftyFirstPage(){
         ServiceController<ScreenReaderService> controller=start();

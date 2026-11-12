@@ -19,6 +19,8 @@ import static org.junit.Assert.*;
 
 @RunWith(RobolectricTestRunner.class) @Config(sdk=36,qualifiers="w320dp-h720dp-mdpi") @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public class NativeReaderLayoutTest {
+    @org.junit.Before public void directTextWork(){ReaderOverlay.textExecutor=Runnable::run;}
+    @org.junit.After public void restoreTextWork(){ReaderOverlay.textExecutor=ReaderOverlay.DEFAULT_TEXT_EXECUTOR;}
     @Test public void enlargedSystemFontFitsVerticallyForShortUnits(){
         Activity activity=Robolectric.buildActivity(MainActivity.class).setup().get();
         android.content.res.Configuration config=new android.content.res.Configuration(activity.getResources().getConfiguration());config.fontScale=2;
@@ -38,6 +40,7 @@ public class NativeReaderLayoutTest {
         try {
             OcrDocument doc=new OcrDocument(320,720,List.of(new OcrDocument.Line("この文章を一点で読み進められます。",20,100,300,130),new OcrDocument.Line("元のアプリの上で、読む速さを選びます。",20,140,300,170)));
             reader.showDocument(doc,Bitmap.createBitmap(320,720,Bitmap.Config.ARGB_8888));
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
             View root=reader.view();root.measure(View.MeasureSpec.makeMeasureSpec(296,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(696,View.MeasureSpec.AT_MOST));root.layout(0,0,296,root.getMeasuredHeight());
             assertTrue(root.getHeight()<=696);
             FocusWordView word=root.findViewById(R.id.reader_word);assertTrue(word.getWidth()>0);
@@ -54,6 +57,7 @@ public class NativeReaderLayoutTest {
             View close=root.findViewById(R.id.reader_close);assertTrue(close.getWidth()>=44);assertTrue(close.getHeight()>=44);
             reader.automatic(true,2,()->{},()->{});
             reader.showDocument(doc,Bitmap.createBitmap(320,720,Bitmap.Config.ARGB_8888),"読了したら次の画面へ進みます。",false);
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
             root.measure(View.MeasureSpec.makeMeasureSpec(296,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(696,View.MeasureSpec.AT_MOST));root.layout(0,0,296,root.getMeasuredHeight());
             assertTrue(root.getHeight()<=696);TextView status=root.findViewById(R.id.reader_status);assertTrue(status.getText().toString().contains("自動 2画面目"));
             Bitmap autoImage=Bitmap.createBitmap(root.getWidth(),root.getHeight(),Bitmap.Config.ARGB_8888);root.draw(new Canvas(autoImage));

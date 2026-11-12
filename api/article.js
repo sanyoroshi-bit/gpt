@@ -1,5 +1,5 @@
 // File-based Vercel Function. GET checks initialization only, not article-site access.
-export const API_VERSION='article-v4';
+export const API_VERSION='article-v5';
 const respond=(res,status,body)=>res.status(status).json(body);
 function diagnostic(error){
  const safe=value=>typeof value==='string'&&/^[a-zA-Z0-9_.-]{1,64}$/.test(value)?value:'UNKNOWN';

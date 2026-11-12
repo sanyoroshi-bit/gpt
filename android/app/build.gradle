@@ -7,14 +7,15 @@ android {
         applicationId 'jp.tenreader.launcher'
         minSdk 26
         targetSdk 36
-        versionCode 3
-        versionName '0.3.0'
+        versionCode 4
+        versionName '0.4.0'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
     lint { abortOnError true }
+    packaging { resources { merges += ['META-INF/CONTRIBUTORS.md','META-INF/LICENSE.md','META-INF/NOTICE.md'] } }
     testOptions {
         unitTests.includeAndroidResources = true
         unitTests.all { systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2' }
@@ -31,6 +32,7 @@ android {
 
 dependencies {
     implementation 'com.google.mlkit:text-recognition-japanese:16.0.1'
+    implementation 'com.atilika.kuromoji:kuromoji-ipadic:0.9.0'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.16.1'
 }

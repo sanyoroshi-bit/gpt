@@ -133,4 +133,42 @@ public class LauncherLifecycleTest {
         } finally { controller.destroy(); }
         assertFalse(OverlayService.isRunning());
     }
+    @Test public void closingSettingsAndRemovingItsTaskKeepsTheLauncher(){
+        ShadowSettings.setCanDrawOverlays(true);ServiceController<OverlayService> service=Robolectric.buildService(OverlayService.class).create();
+        try{
+            assertEquals(android.app.Service.START_STICKY,service.get().onStartCommand(new Intent(),0,1));
+            try(ActivityController<MainActivity> activity=Robolectric.buildActivity(MainActivity.class).setup()){activity.get().finish();}
+            service.get().onTaskRemoved(new Intent());assertTrue(OverlayService.isRunning());assertFalse(shadowOf(service.get()).isStoppedBySelf());
+        }finally{service.destroy();}
+    }
+    @Test public void osRestartRestoresOnlyTheLauncherWithoutCapture(){
+        ShadowSettings.setCanDrawOverlays(true);CaptureTicket.cancelAll();ServiceController<OverlayService> service=Robolectric.buildService(OverlayService.class).create();
+        try{assertEquals(android.app.Service.START_STICKY,service.get().onStartCommand(null,0,1));assertTrue(OverlayService.isRunning());assertFalse(CaptureTicket.busy());assertNull(shadowOf(service.get()).getNextStartedActivity());}
+        finally{service.destroy();}
+    }
+    @Test public void screenOnWithoutUnlockBroadcastRestoresTheIcon(){
+        ShadowSettings.setCanDrawOverlays(true);ServiceController<OverlayService> service=Robolectric.buildService(OverlayService.class).create();
+        try{
+            service.get().onStartCommand(new Intent(),0,1);shadowOf(Looper.getMainLooper()).idle();
+            View bubble=org.robolectric.util.ReflectionHelpers.getField(service.get(),"bubble");
+            service.get().sendBroadcast(new Intent(Intent.ACTION_SCREEN_OFF));shadowOf(Looper.getMainLooper()).idle();assertEquals(View.GONE,bubble.getVisibility());assertTrue(OverlayService.isRunning());
+            service.get().sendBroadcast(new Intent(Intent.ACTION_SCREEN_ON));shadowOf(Looper.getMainLooper()).idle();assertEquals(View.VISIBLE,bubble.getVisibility());assertTrue(OverlayService.isRunning());assertFalse(shadowOf(service.get()).isStoppedBySelf());
+        }finally{service.destroy();}
+    }
+    @Test public void restartWhileScreenOffStaysHiddenUntilScreenOnAndUnlock(){
+        ShadowSettings.setCanDrawOverlays(true);
+        android.app.Application app=org.robolectric.RuntimeEnvironment.getApplication();
+        shadowOf(app.getSystemService(android.os.PowerManager.class)).setIsInteractive(false);shadowOf(app.getSystemService(android.app.KeyguardManager.class)).setKeyguardLocked(true);
+        ServiceController<OverlayService> service=Robolectric.buildService(OverlayService.class).create();
+        try{
+            service.get().onStartCommand(null,0,1);View bubble=org.robolectric.util.ReflectionHelpers.getField(service.get(),"bubble");assertEquals(View.GONE,bubble.getVisibility());
+            service.get().sendBroadcast(new Intent(Intent.ACTION_SCREEN_ON));shadowOf(Looper.getMainLooper()).idle();assertEquals(View.GONE,bubble.getVisibility());
+            shadowOf(app.getSystemService(android.app.KeyguardManager.class)).setKeyguardLocked(false);service.get().sendBroadcast(new Intent(Intent.ACTION_USER_PRESENT));shadowOf(Looper.getMainLooper()).idle();assertEquals(View.VISIBLE,bubble.getVisibility());
+        }finally{service.destroy();}
+    }
+    @Test public void explicitHideIsNotSticky(){
+        ShadowSettings.setCanDrawOverlays(true);ServiceController<OverlayService> service=Robolectric.buildService(OverlayService.class).create();
+        try{service.get().onStartCommand(new Intent(),0,1);assertEquals(android.app.Service.START_NOT_STICKY,service.get().onStartCommand(new Intent().setAction("jp.tenreader.launcher.STOP_OVERLAY"),0,2));assertTrue(shadowOf(service.get()).isStoppedBySelf());}
+        finally{service.destroy();}
+    }
 }

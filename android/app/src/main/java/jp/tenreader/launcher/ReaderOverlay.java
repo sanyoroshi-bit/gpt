@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class ReaderOverlay implements AutoCloseable {
+    static final java.util.concurrent.Executor DEFAULT_TEXT_EXECUTOR=java.util.concurrent.Executors.newSingleThreadExecutor(task->{Thread t=new Thread(task,"ten-word-analysis");t.setDaemon(true);return t;});
+    static java.util.concurrent.Executor textExecutor=DEFAULT_TEXT_EXECUTOR;
     private final Context context;
     private final WindowManager manager;
     private final Handler handler=new Handler(Looper.getMainLooper());
@@ -35,6 +37,7 @@ final class ReaderOverlay implements AutoCloseable {
     private FocusWordView word;
     private TextView status,speedLabel;
     private Button play;
+    private Button previous,next;
     private Button autoStop;
     private SeekBar position;
     private EditText editor;
@@ -46,6 +49,9 @@ final class ReaderOverlay implements AutoCloseable {
     private int fontSize=36,page=1;
     private Runnable onFinished,onCorrection;
     private String notice="";
+    private volatile long textGeneration;
+    private boolean preparing,requestedPlayback;
+    private int pendingOffset;
     private final Runnable tick=new Runnable() {
         @Override public void run() {
             if (closed || !playing) return;
@@ -95,13 +101,13 @@ final class ReaderOverlay implements AutoCloseable {
     View view(){return root;}
     void setHidden(boolean hidden){if(!closed)root.setVisibility(hidden?View.GONE:View.VISIBLE);}
     void automatic(boolean enabled,int page,Runnable onFinished,Runnable onCorrection){this.automatic=enabled;this.page=page;this.onFinished=onFinished;this.onCorrection=onCorrection;if(autoStop!=null)autoStop.setVisibility(enabled?View.VISIBLE:View.GONE);if(word!=null)render();}
-    void notice(String message){notice=message;if(status!=null)render();}
-    void showLoading() { content.removeAllViews();text(content,"画面の文字を読み取っています…",16);text(content,"この画面の「閉じる」で中止できます。",12); }
+    void notice(String message){notice=message;if(word!=null)render();else if(status!=null&&!message.isEmpty())status.setText(message);}
+    void showLoading() { pause();textGeneration++;preparing=false;content.removeAllViews();word=null;play=null;editor=null;status=text(content,"画面の文字を読み取っています…",16);status.setId(R.id.reader_status);text(content,"この画面の「閉じる」で中止できます。",12); }
     void showError(String message) {
-        if (closed) return;pause();content.removeAllViews();text(content,message,15);button(content,"画面を読み取り直す",onRetry);
+        if (closed) return;pause();textGeneration++;preparing=false;content.removeAllViews();word=null;play=null;editor=null;status=text(content,message,15);status.setId(R.id.reader_status);button(content,"画面を読み取り直す",onRetry);
     }
     void showDocument(OcrDocument document,Bitmap preview) {
-        String selected=document.text(document.bodyRegion());showDocument(document,preview,selected,ReadingText.visibleCount(selected)>=12);
+        String selected=document.body().text();showDocument(document,preview,selected,ReadingText.visibleCount(selected)>=12);
     }
     void showDocument(OcrDocument document,Bitmap preview,String selected,boolean autoplay) {
         if (closed) { if(preview!=null)preview.recycle();return; }
@@ -118,9 +124,9 @@ final class ReaderOverlay implements AutoCloseable {
             @Override public void onStopTrackingTouch(SeekBar bar) {}
         });
         LinearLayout controls=row(content);
-        weightedButton(controls,"戻る",()->{pause();finished=false;index=Math.max(0,index-5);render();});
+        previous=weightedButton(controls,"戻る",()->{pause();finished=false;index=Math.max(0,index-5);render();});
         play=weightedButton(controls,"再生",this::toggle);play.setId(R.id.reader_play);
-        Button next=weightedButton(controls,"進む",()->{pause();finished=false;index=Math.min(Math.max(0,units.size()-1),index+5);render();});next.setId(R.id.reader_next);
+        next=weightedButton(controls,"進む",()->{pause();finished=false;index=Math.min(Math.max(0,units.size()-1),index+5);render();});next.setId(R.id.reader_next);
         speedLabel=text(content,"",12);
         SeekBar speedBar=new SeekBar(context);speedBar.setMax(116);speedBar.setProgress((speed-200)/50);speedBar.setContentDescription("読む速度");content.addView(speedBar);
         speedBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
@@ -134,9 +140,8 @@ final class ReaderOverlay implements AutoCloseable {
         modes.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
             @Override public void onItemSelected(AdapterView<?> parent,View view,int selected,long id){
                 String next=new String[]{"phrase","word","character"}[selected];if(next.equals(mode))return;
-                int offset=0;for(int i=0;i<index;i++)offset+=ReadingText.visibleCount(units.get(i));
-                pause();finished=false;mode=next;context.getSharedPreferences("native-reader",0).edit().putString("mode",mode).apply();units=ReadingText.tokenize(source,mode);index=0;
-                while(index+1<units.size() && offset>=ReadingText.visibleCount(units.get(index))){offset-=ReadingText.visibleCount(units.get(index));index++;}render();
+                int offset=preparing?pendingOffset:0;if(!preparing)for(int i=0;i<index;i++)offset+=ReadingText.visibleCount(units.get(i));
+                mode=next;context.getSharedPreferences("native-reader",0).edit().putString("mode",mode).apply();apply(source,false,offset);
             }
             @Override public void onNothingSelected(AdapterView<?> parent){}
         });
@@ -155,6 +160,7 @@ final class ReaderOverlay implements AutoCloseable {
         LinearLayout ranges=row(correction);
         weightedButton(ranges,"範囲を適用",()->{String cropped=document.text(crop.region());editor.setText(cropped);apply(cropped,false);});
         weightedButton(ranges,"全文に戻す",()->{String all=document.text(new OcrDocument.Region(0,0,document.width,document.height));editor.setText(all);apply(all,false);});
+        weightedButton(ranges,"本文だけに戻す",()->{String bodyText=document.body().text();editor.setText(bodyText);apply(bodyText,false);});
         Button apply=button(correction,"修正を反映して再生",()->{apply(editor.getText().toString(),true);setEditing(false);correction.setVisibility(View.GONE);});apply.setId(R.id.reader_apply);
         text(correction,"文字サイズ（20〜64）",12);
         SeekBar size=new SeekBar(context);size.setMax(22);size.setProgress((fontSize-20)/2);size.setContentDescription("文字サイズ");correction.addView(size);
@@ -163,22 +169,42 @@ final class ReaderOverlay implements AutoCloseable {
             @Override public void onStartTrackingTouch(SeekBar bar){}
             @Override public void onStopTrackingTouch(SeekBar bar){}
         });
+        text(correction,"固有名詞の区切り辞書（任意・1行に1語）",12);
+        EditText terms=new EditText(context);terms.setMinLines(2);terms.setMaxLines(4);terms.setTextSize(14);terms.setFilters(new InputFilter[]{new InputFilter.LengthFilter(5000)});terms.setText(context.getSharedPreferences("native-reader",0).getString("protected-terms",""));terms.setContentDescription("ひとまとまりにする固有名詞");correction.addView(terms,new LinearLayout.LayoutParams(-1,-2));
+        button(correction,"固有名詞を編集",()->{setEditing(true);terms.requestFocus();context.getSystemService(InputMethodManager.class).showSoftInput(terms,InputMethodManager.SHOW_IMPLICIT);});
+        button(correction,"区切り辞書を保存",()->{context.getSharedPreferences("native-reader",0).edit().putString("protected-terms",terms.getText().toString()).apply();setEditing(false);apply(source,false);});
+        text(correction,"登録語は端末の設定として保存します。長い名称は表示幅に合わせ12文字ずつ表示します。",12);
         button(content,"現在の画面を読み取り直す",onRetry);
         editor.setText(selected);apply(selected,autoplay);
     }
     private void apply(String text,boolean autoplay) {
-        pause();finished=false;source=text;units=ReadingText.tokenize(text,mode);index=0;render();
-        if (units.isEmpty()) status.setText("範囲に文字がありません。範囲か文章を修正してください。");
-        else if(autoplay) toggle();
+        apply(text,autoplay,0);
+    }
+    private void apply(String text,boolean autoplay,int offset){
+        pause();finished=false;source=text;units=new ArrayList<>();index=0;pendingOffset=offset;preparing=true;requestedPlayback=autoplay;
+        long generation=++textGeneration;String requestedMode=mode;String terms=context.getSharedPreferences("native-reader",0).getString("protected-terms","");render();
+        textExecutor.execute(()->{
+            if(generation!=textGeneration)return;
+            List<String> parsed;
+            try{parsed=ReadingText.tokenize(text,requestedMode,JapaneseWords.terms(terms));}
+            catch(RuntimeException|LinkageError|OutOfMemoryError e){handler.post(()->{if(closed||generation!=textGeneration)return;preparing=false;requestedPlayback=false;render();status.setText("単語の準備に失敗しました。文字モードか文章の修正を試してください。");});return;}
+            handler.post(()->{
+                if(closed||generation!=textGeneration)return;preparing=false;units=parsed;int remaining=offset;
+                while(index+1<units.size()&&remaining>=ReadingText.visibleCount(units.get(index))){remaining-=ReadingText.visibleCount(units.get(index));index++;}
+                render();if(units.isEmpty())status.setText("本文を特定できませんでした。範囲か文章を確認してください。");else if(requestedPlayback)toggle();
+            });
+        });
     }
     private void toggle() { if(closed||units.isEmpty())return;if(playing){pause();return;}if(finished){index=0;finished=false;}playing=true;render();schedule(); }
-    private void pause() { playing=false;handler.removeCallbacks(tick);if(play!=null)play.setText("再生"); }
+    private void pause() { requestedPlayback=false;playing=false;handler.removeCallbacks(tick);if(play!=null)play.setText("再生"); }
     private void schedule() { handler.removeCallbacks(tick);if(playing&&!units.isEmpty())handler.postDelayed(tick,ReadingText.duration(units.get(index),speed)); }
     private void render() {
         if(word==null)return;
         word.setWord(units.isEmpty()?"":units.get(index));position.setMax(Math.max(0,units.size()-1));position.setProgress(index);
         status.setText(notice.isEmpty()?context.getString(R.string.reader_position,units.isEmpty()?0:index+1,units.size(),automatic?"自動 "+page+"画面目":playing?"本文候補を再生中":"停止中"):notice);status.setMaxLines(notice.isEmpty()?2:5);
         speedLabel.setText(context.getString(R.string.reader_speed,speed));play.setText(playing?"一時停止":"再生");
+        play.setEnabled(!preparing);if(preparing)play.setText("区切りを準備中");
+        previous.setEnabled(!preparing);next.setEnabled(!preparing);position.setEnabled(!preparing);
     }
     private void setEditing(boolean editing) {
         if(closed)return;
@@ -187,7 +213,7 @@ final class ReaderOverlay implements AutoCloseable {
         if(root.isAttachedToWindow())manager.updateViewLayout(root,params);
     }
     @Override public void close() {
-        if(closed)return;closed=true;playing=false;handler.removeCallbacksAndMessages(null);
+        if(closed)return;closed=true;playing=false;textGeneration++;handler.removeCallbacksAndMessages(null);
         context.getSystemService(InputMethodManager.class).hideSoftInputFromWindow(root.getWindowToken(),0);
         if(editor!=null)editor.setText("");if(word!=null)word.setWord("");source="";units.clear();
         OwnOverlayWindows.remove(root);

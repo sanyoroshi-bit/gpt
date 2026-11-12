@@ -58,7 +58,7 @@ public final class MainActivity extends Activity {
         TextView title = text(content, "ten.", 48);
         title.setTypeface(Typeface.create("serif", Typeface.BOLD));
         text(content, "ほかのアプリから、読書へ。", 20);
-        text(content, "試用版 0.3.0 · Android 8以降", 13);
+        text(content, "試用版 0.4.0 · Android 8以降", 13);
         button(content, "ブラウザ版tenを開く ↗", this::openReader);
         status = text(content, "", 15);
         enable = button(content, "画面のボタンを表示", this::enableOverlay);
@@ -66,7 +66,9 @@ public final class MainActivity extends Activity {
         text(content, "読みたいアプリを開いて、小さなtenを押してください。画面取得を許可すると、日本語の本文候補を読み取り、そのアプリ上で定点表示します。範囲・文章はリーダー内で修正できます。ドラッグでアイコン移動、長押しで非表示です。", 15);
         autoStatus=text(content,"",14);
         Button automatic=button(content,"自動スクロールを設定",this::configureAutomatic);automatic.setId(R.id.auto_scroll_setting);
-        text(content,"任意の設定です。ONにした読書中は、読み終えるごとにスクロールして続きを取得します。操作に対応し、次の画面にも本文の重なりが残るアプリが対象です。続きの一致を確認できない場合は停止します。画面共有は終了まで継続し、アプリ切替・検知した手動操作で停止します。1回の読書は最大50画面です。",14);
+        text(content,"任意の設定です。同じ記事の下方向への移動を繰り返して本文を読み、縦移動の末尾で停止します。横の別記事へは進みません。続きの一致を確認できない場合も停止します。画面共有は終了まで継続し、アプリ切替・検知した手動操作で終了します。1回の読書は最大50画面です。",14);
+        text(content,"タイトルや表を本文から自動で除外します。誤判定は範囲・文章の欄で確認し、全文に戻せます。固有名詞は端末内の日本語辞書で区切り、未知の名称は区切り辞書に登録できます。",14);
+        button(content,"日本語辞書のライセンス",this::showDictionaryLicenses);
         button(content,"OS設定で有効化できない場合の案内",()->{
             try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://support.google.com/android/answer/12623953?hl=ja")));}catch(ActivityNotFoundException e){toast("Android公式ヘルプの『制限付き設定』を確認してください。");}
         });
@@ -77,7 +79,7 @@ public final class MainActivity extends Activity {
             try { startActivity(intent); } catch (ActivityNotFoundException e) { toast("端末の設定からtenの通知を確認してください。"); }
         });
         text(content, "表示には重ね表示の許可、読み取りにはOSの画面取得への同意を使います。取得した画像と本文は端末内で処理し、閉じると破棄します。保護画面には対応していません。画面外の続きは、画面を動かして読み取り直せます。", 14);
-        text(content, "OSや省電力設定でボタンが停止することがあります。再起動後は自動表示しません。再びこの画面から表示してください。", 14);
+        text(content, "設定画面や読書画面を閉じても、tenアイコンは残ります。消すときは長押しか「ボタンを非表示にする」を使ってください。OSや省電力設定で停止する場合があります。端末の再起動後はこの画面から表示してください。", 14);
         setContentView(scroll);
         if (state == null) handleIntent(getIntent());
     }
@@ -173,6 +175,13 @@ public final class MainActivity extends Activity {
             .setPositiveButton("同意してOS設定へ",(d,w)->{getSharedPreferences("native-reader",0).edit().putBoolean("auto-scroll",true).apply();accessibilitySettings();refresh();}).show();
     }
     private void accessibilitySettings(){try{startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));}catch(ActivityNotFoundException e){toast("端末のユーザー補助設定からtenを有効にしてください。");}}
+    private void showDictionaryLicenses(){
+        StringBuilder text=new StringBuilder();
+        try{for(String file:new String[]{"kuromoji-LICENSE.txt","kuromoji-NOTICE.txt","ipadic-NOTICE.txt","kuromoji-CONTRIBUTORS.txt"}){
+            text.append(file).append("\n\n");try(java.io.BufferedReader reader=new java.io.BufferedReader(new java.io.InputStreamReader(getAssets().open("licenses/"+file),java.nio.charset.StandardCharsets.UTF_8))){String line;while((line=reader.readLine())!=null)text.append(line).append('\n');}text.append("\n\n");
+        }}catch(java.io.IOException e){toast("ライセンスを開けませんでした。");return;}
+        new AlertDialog.Builder(this).setTitle("Kuromoji / IPADIC").setMessage(text.toString()).setPositiveButton("閉じる",null).show();
+    }
 
     private void openReader() {
         try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://gpt-delta.vercel.app/"))

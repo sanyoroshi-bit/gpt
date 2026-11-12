@@ -68,6 +68,20 @@ public class AutoScrollServiceTest {
     @Test public void changingForegroundWindowCancelsWithoutMoreActions(){root.setPackageName("other.application");event(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,root);shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(151));assertTrue(cancelled);assertFalse(service.forward(ticket,target,result->{}));assertTrue(shadowOf(root).getPerformedActions().isEmpty());}
     @Test public void nodesOutsideTargetWindowCannotBeScrolled(){root.setScrollable(false);AccessibilityNodeInfo outside=node(new Rect(0,0,640,720),true);shadowOf(root).addChild(outside);assertFalse(service.forward(ticket,target,result->{}));assertTrue(shadowOf(outside).getPerformedActions().isEmpty());}
     @Test public void noOwnedCaptureMeansNoAutomaticAction(){CaptureTicket.cancelAll();assertFalse(service.forward(ticket,target,result->{}));assertTrue(shadowOf(root).getPerformedActions().isEmpty());}
+    @Test public void nikkeiStyleOuterPagerNeverWinsOverInnerVerticalArticle(){
+        root.removeAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN);root.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD);root.setClassName("androidx.viewpager.widget.ViewPager");
+        AccessibilityNodeInfo article=node(new Rect(0,80,320,700),true);article.setClassName("android.webkit.WebView");shadowOf(root).addChild(article);
+        assertTrue(service.forward(ticket,target,result->{}));assertTrue(shadowOf(root).getPerformedActions().isEmpty());assertEquals(List.of(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN.getId()),shadowOf(article).getPerformedActions());
+        event(AccessibilityEvent.TYPE_VIEW_SCROLLED,article);shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(251));
+        article.removeAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN);article.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_UP);
+        assertFalse(service.forward(ticket,target,result->{}));assertTrue(shadowOf(root).getPerformedActions().isEmpty());assertEquals(1,shadowOf(article).getPerformedActions().size());
+    }
+    @Test public void ambiguousForwardOnlyNeverTurnsAnArticle(){root.removeAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN);root.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD);assertFalse(service.forward(ticket,target,result->{}));assertTrue(shadowOf(root).getPerformedActions().isEmpty());}
+    @Test public void twoDimensionalArticleStillUsesOnlyExplicitDown(){root.setClassName("android.webkit.WebView");root.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_RIGHT);root.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD);assertTrue(service.forward(ticket,target,result->{}));assertEquals(List.of(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN.getId()),shadowOf(root).getPerformedActions());}
+    @Test public void lockedArticleCannotSwitchToAnotherVerticalNode(){
+        AccessibilityNodeInfo article=node(new Rect(0,80,320,700),true);shadowOf(root).addChild(article);assertTrue(service.forward(ticket,target,result->{}));event(AccessibilityEvent.TYPE_VIEW_SCROLLED,article);shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(251));
+        article.removeAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN);assertFalse(service.forward(ticket,target,result->{}));assertTrue(shadowOf(root).getPerformedActions().isEmpty());
+    }
     @Test public void missingActualWindowFailsClosed(){shadowOf(root).setAccessibilityWindowInfo(null);assertNull(service.snapshot());assertFalse(service.forward(ticket,target,result->{}));assertTrue(shadowOf(root).getPerformedActions().isEmpty());}
     @Test public void missingWindowInventoryFailsClosed(){shadowOf(service).setWindows(List.of());assertNull(service.snapshot());assertFalse(service.captureSafe(target));}
     private AccessibilityWindowInfo upperWindow(int id,String pkg,int type,Rect bounds){
