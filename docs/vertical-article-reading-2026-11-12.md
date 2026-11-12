@@ -38,6 +38,12 @@ Webユニット49件と、ブラウザ回帰18件＋確定APKの配布テスト1
 
 監査担当は「0.4のローカル実装・試用APK配布・今回のmain反映を明示承認します。阻害指摘は残っていません」と承認した。Native88件・Lint・46ファイルのソース/ビルドコピー一致・配布APK一致・署名・16KB配置・辞書/権利表記・INTERNETなしを独立確認し、Web49件と追加ブラウザ2件も確認した。承認対象は上記SHAの実機未確認・debug署名試用版。日経の実動作・OCR精度・アイコン維持・辞書の実機速度/メモリの成功承認ではない。公開後の確認と、その観測記録だけの追記・反映も承認された。
 
+## 公開確認
+
+実装commit `fe41832b689b6a0da6ce2fda5600142f1c75dfe4` をmainへ反映し、Vercelのsuccessを確認した。2026-11-12 16:25 JST、公開 `/android.html` は200で試用版0.4・縦記事限定・アイコン維持・実機未確認を表示。公開APKは200、MIME application/vnd.android.package-archive、61,140,839 bytesで、ZIP magicと承認済みSHA-256、公開.sha256の一致を実際のダウンロードで確認した。
+
+公開 `/api/article` GETは200・article-v5・initialization-only。依存起動だけの確認であり、実際の特定記事の取得成功ではない。観測値は `verification/live-vertical-article-reading-2026-11-12.json`。公開HTTP配布の確認とAndroid実機での成功を区別する。
+
 ## 未検証と限界
 
 Android端末の接続は0台。日経電子版そのものの実node構造・実フレーム・OCR精度・実スクロール、アイコンの維持、実機の辞書初期化速度/メモリ量は未確認。Nativeのパイプラインは偽FrameSource/OcrEngineとJVM node/eventで検証し、Kuromojiは実辞書の文字列で検証する。Webのページ追跡は模擬HTML/HTTP応答で検証し、全ネット記事に対応したとは主張しない。
